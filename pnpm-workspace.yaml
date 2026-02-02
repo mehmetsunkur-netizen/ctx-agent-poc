@@ -1,11 +1,7 @@
 packages:
   - agent-framework
-  - agentic-memory
-  - agentic-memory/packages/*
   - agentic-search
   - agentic-search/packages/*
-  - code-search
-  - code-search/packages/*
 
 onlyBuiltDependencies:
   - esbuild
