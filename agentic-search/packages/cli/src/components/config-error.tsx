@@ -14,6 +14,7 @@ export function ConfigError({ issues }: { issues: ZodIssue[] }) {
       assistantMessages={[]}
       result={null}
       error={errorMessages}
+      cancel={() => {}}
     />
   );
 }

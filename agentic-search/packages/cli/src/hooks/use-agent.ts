@@ -13,6 +13,14 @@ import {
   Step,
   ToolCall,
 } from "@agentic-search/bcp-agent";
+import { DebugStatusHandler, DebugOptions } from "@/debug-status-handler";
+
+export interface ToolResultEntry {
+  toolName: string;
+  timestamp: number;
+  result: string;
+  preview: string;
+}
 
 export function useAgent({
   queryId,
@@ -27,8 +35,10 @@ export function useAgent({
   const [assistantMessages, setAssistantMessages] = useState<string[]>([]);
   const [result, setResult] = useState<Answer | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [toolResults, setToolResults] = useState<ToolResultEntry[]>([]);
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const debugHandlerRef = useRef<DebugStatusHandler | null>(null);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -49,6 +59,31 @@ export function useAgent({
       }) {
         const message = `I am calling ${args.toolCall.name}(${getToolParamsSymbol(args.toolParams)})\n${args.reason ? args.reason : ""}`;
         setAssistantMessages((prevMessages) => [...prevMessages, message]);
+      }
+
+      onToolResult(result: unknown, toolCall?: ToolCall) {
+        if (flags.verbose) {
+          const formatted =
+            typeof result === "string"
+              ? result
+              : JSON.stringify(result, null, 2);
+
+          // Create preview (first 500 chars)
+          const preview =
+            formatted.length > 500
+              ? formatted.slice(0, 500) + "..."
+              : formatted;
+
+          setToolResults((prev) => [
+            ...prev,
+            {
+              toolName: toolCall?.name || "unknown",
+              timestamp: Date.now(),
+              result: formatted,
+              preview,
+            },
+          ]);
+        }
       }
 
       onStepOutcome(outcome: Outcome) {
@@ -78,22 +113,54 @@ export function useAgent({
 
       const cliStatusHandler = new CLIStatusHandler();
 
-      const agent = await BrowseCompPlusAgent.create({
-        llmConfig: {
-          provider: LLMFactory.parseLLMProvider(provider),
-          model,
-        },
-        statusHandler: cliStatusHandler,
-      });
+      // Wrap with debug handler if verbose or debug file is specified
+      let statusHandler: BCPAgentStatusHandler = cliStatusHandler;
 
-      const finalAnswer = await agent.answer({
-        queryId,
-        maxPlanSize,
-        signal: abortController.signal,
-      });
+      if (flags.verbose || flags.debugFile) {
+        const debugOptions: DebugOptions = {
+          verbose: flags.verbose || false,
+          showToolResults: flags.verbose || false,
+          logToFile: !!flags.debugFile,
+          filePath: flags.debugFile,
+        };
 
-      setResult(finalAnswer);
-      setAppStatus("Done!");
+        const debugHandler = new DebugStatusHandler(
+          cliStatusHandler,
+          debugOptions
+        );
+        statusHandler = debugHandler;
+        debugHandlerRef.current = debugHandler;
+      }
+
+      try {
+        const agent = await BrowseCompPlusAgent.create({
+          llmConfig: {
+            provider: LLMFactory.parseLLMProvider(provider),
+            model,
+          },
+          statusHandler,
+        });
+
+        const finalAnswer = await agent.answer({
+          queryId,
+          maxPlanSize,
+          signal: abortController.signal,
+        });
+
+        setResult(finalAnswer);
+        setAppStatus("Done!");
+
+        // Flush debug logs on success
+        if (debugHandlerRef.current) {
+          await debugHandlerRef.current.flush();
+        }
+      } catch (error) {
+        // Flush debug logs on error too
+        if (debugHandlerRef.current) {
+          await debugHandlerRef.current.flush();
+        }
+        throw error;
+      }
     }
 
     runAgent().catch((error) => {
@@ -123,6 +190,7 @@ export function useAgent({
     assistantMessages,
     result,
     error,
+    toolResults,
     cancel,
   };
 }

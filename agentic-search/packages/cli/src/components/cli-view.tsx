@@ -7,6 +7,7 @@ import {
   Query,
   Step,
 } from "@agentic-search/bcp-agent";
+import { ToolResultEntry } from "@/hooks/use-agent";
 
 interface CLIProps {
   appStatus: string;
@@ -15,6 +16,8 @@ interface CLIProps {
   assistantMessages: string[];
   result: Answer | null;
   error: string | null;
+  toolResults?: ToolResultEntry[];
+  verbose?: boolean;
   cancel: () => void;
 }
 
@@ -25,6 +28,8 @@ export function CLIView({
   assistantMessages,
   result,
   error,
+  toolResults = [],
+  verbose = false,
   cancel,
 }: CLIProps) {
   const { exit } = useApp();
@@ -73,6 +78,28 @@ export function CLIView({
             <Text key={index} dimColor>
               {`> ${msg}`}
             </Text>
+          ))}
+        </Box>
+      )}
+
+      {verbose && toolResults.length > 0 && (
+        <Box flexDirection="column" marginBottom={1}>
+          <Text bold color="cyan">
+            Tool Execution History:
+          </Text>
+          {toolResults.map((entry, i) => (
+            <Box key={i} flexDirection="column" marginLeft={2} marginTop={1}>
+              <Text>
+                <Text color="yellow">{entry.toolName}</Text>
+                <Text dimColor>
+                  {" "}
+                  ({new Date(entry.timestamp).toLocaleTimeString()})
+                </Text>
+              </Text>
+              <Box flexDirection="column" marginLeft={2}>
+                <Text dimColor>{entry.preview}</Text>
+              </Box>
+            </Box>
           ))}
         </Box>
       )}
