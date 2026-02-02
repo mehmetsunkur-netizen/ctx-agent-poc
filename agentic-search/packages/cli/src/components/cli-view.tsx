@@ -85,9 +85,50 @@ export function CLIView({
       {verbose && toolResults.length > 0 && (
         <Box flexDirection="column" marginBottom={1}>
           <Text bold color="cyan">
-            Tool Execution History:
+            Tool Execution Summary:
           </Text>
-          {toolResults.map((entry, i) => (
+          {(() => {
+            // Calculate tool counts by type
+            const toolCounts = toolResults.reduce((acc, entry) => {
+              acc[entry.toolName] = (acc[entry.toolName] || 0) + 1;
+              return acc;
+            }, {} as Record<string, number>);
+
+            // Calculate total duration
+            const firstTimestamp = toolResults[0]?.timestamp || 0;
+            const lastTimestamp = toolResults[toolResults.length - 1]?.timestamp || 0;
+            const durationSeconds = ((lastTimestamp - firstTimestamp) / 1000).toFixed(1);
+
+            return (
+              <Box flexDirection="column" marginLeft={2}>
+                {Object.entries(toolCounts).map(([name, count]) => (
+                  <Text key={name} dimColor>
+                    <Text color="yellow">{name}</Text>: {count} call{count > 1 ? 's' : ''}
+                  </Text>
+                ))}
+                <Text dimColor>
+                  Total: {toolResults.length} call{toolResults.length > 1 ? 's' : ''} in {durationSeconds}s
+                </Text>
+              </Box>
+            );
+          })()}
+
+          {toolResults.length > 5 && (
+            <Box marginTop={1} marginLeft={2}>
+              <Text bold color="cyan">
+                Recent Tool Calls (last 5 of {toolResults.length}):
+              </Text>
+            </Box>
+          )}
+          {toolResults.length <= 5 && toolResults.length > 0 && (
+            <Box marginTop={1} marginLeft={2}>
+              <Text bold color="cyan">
+                Recent Tool Calls:
+              </Text>
+            </Box>
+          )}
+
+          {toolResults.slice(-5).map((entry, i) => (
             <Box key={i} flexDirection="column" marginLeft={2} marginTop={1}>
               <Text>
                 <Text color="yellow">{entry.toolName}</Text>

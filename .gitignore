@@ -63,3 +63,6 @@ test*
 
 # LLMs
 .claude
+CLAUDE.md
+.gitignore
+ai_docs
