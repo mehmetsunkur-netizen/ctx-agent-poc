@@ -1,4 +1,4 @@
-import { Collection, CloudClient } from "chromadb";
+import { Collection, ChromaClient } from "chromadb";
 import { CommitDetails, Diffs, Repository } from "../repository";
 import { Chunker } from "../chunker";
 import { encoding_for_model, Tiktoken } from "tiktoken";
@@ -8,37 +8,49 @@ import ignore from "ignore";
 import { AgentError } from "@isara-ctx/agent-framework";
 import { OpenAIEmbeddingFunction } from "@chroma-core/openai";
 import { Chunk } from "../chunker/types";
-import { createHash } from "node:crypto";
 
 export class Indexer {
   private static MAX_TOKEN = 8192;
   private static BATCH_SIZE = 300;
-  private static COMMITS_COLLECTION = "commits";
 
-  private chromaClient: CloudClient;
-  private commitsCollection: Collection;
+  private chromaClient: ChromaClient;
+  private mainCollectionName: string;
+  private dirtyCollectionName: string;
+  private embeddingFunction: OpenAIEmbeddingFunction;
   private chunker: Chunker;
   repository: Repository;
 
   constructor({
     chromaClient,
-    commitsCollection,
     repository,
   }: {
-    chromaClient: CloudClient;
-    commitsCollection: Collection;
+    chromaClient: ChromaClient;
     repository: Repository;
   }) {
     this.chromaClient = chromaClient;
-    this.commitsCollection = commitsCollection;
     this.repository = repository;
 
+    // Collection names
+    const repoName = path.basename(repository.path);
+    this.mainCollectionName = `repo-${this.sanitizeRepoName(repoName)}`;
+    this.dirtyCollectionName = `${this.mainCollectionName}-dirty`;
+
+    // Initialize chunker
     const encoder: Tiktoken = encoding_for_model("text-embedding-3-large");
     this.chunker = new Chunker({
       rootPath: this.repository.path,
       encoder,
       maxTokens: Indexer.MAX_TOKEN,
     });
+
+    // Initialize embedding function
+    this.embeddingFunction = new OpenAIEmbeddingFunction({
+      modelName: "text-embedding-3-large",
+    });
+  }
+
+  private sanitizeRepoName(name: string): string {
+    return name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
   }
 
   static async create({
@@ -46,12 +58,23 @@ export class Indexer {
   }: {
     repository: Repository;
   }): Promise<Indexer> {
-    const chromaClient = new CloudClient();
-    const commitsCollection = await chromaClient.getOrCreateCollection({
-      name: Indexer.COMMITS_COLLECTION,
+    // Initialize ChromaClient for local connection
+    const chromaClient = new ChromaClient({
+      path: `http://${process.env.CHROMA_HOST || 'localhost'}:${process.env.CHROMA_PORT || '8000'}`
     });
 
-    return new Indexer({ chromaClient, commitsCollection, repository });
+    // Test connection
+    try {
+      await chromaClient.heartbeat();
+    } catch (error) {
+      throw new AgentError(
+        `Cannot connect to ChromaDB at http://${process.env.CHROMA_HOST || 'localhost'}:${process.env.CHROMA_PORT || '8000'}\n` +
+        'Is ChromaDB running? Check: docker ps',
+        error
+      );
+    }
+
+    return new Indexer({ chromaClient, repository });
   }
 
   private static async addBatch(chunks: Chunk[], collection: Collection) {
@@ -79,104 +102,62 @@ export class Indexer {
 
   async run(): Promise<Collection> {
     const head = await this.repository.headCommit();
-    let latestIndexedCommit = await this.latestIndexedCommit();
 
-    let latestCollection: Collection;
-    if (!latestIndexedCommit) {
-      latestCollection = await this.indexRepository(head);
-      latestIndexedCommit = head.id;
+    // Get or create main collection
+    const mainCollection = await this.getOrCreateMainCollection();
+
+    // Get last indexed commit from metadata
+    const metadata = await mainCollection.metadata;
+    const lastIndexedCommit = metadata?.lastIndexedCommit as string | undefined;
+
+    if (!lastIndexedCommit) {
+      // First time - full index
+      console.log('Indexing repository for first time...');
+      await this.indexFullRepository(mainCollection, head);
+      console.log(`✓ Indexed repository (commit: ${head.id.slice(0, 8)})`);
+    } else if (head.id !== lastIndexedCommit) {
+      // Incremental update
+      console.log('Updating index...');
+      const diffs = await this.repository.commitDiffs(lastIndexedCommit, head.id);
+      await this.updateIncremental(mainCollection, diffs, head.id);
+      console.log(`✓ Updated index (${diffs.modified.length + diffs.added.length + diffs.deleted.length} files changed)`);
     } else {
-      try {
-        latestCollection = await this.chromaClient.getCollection({
-          name: latestIndexedCommit,
-        });
-      } catch (error) {
-        throw new AgentError(
-          `Failed to get collection for latest indexed commit ${latestIndexedCommit}`,
-          error,
-        );
-      }
+      console.log('Index up to date');
     }
 
-    if (head.id !== latestIndexedCommit) {
-      const diffs = await this.repository.commitDiffs(
-        latestIndexedCommit,
-        head.id,
-      );
-      latestCollection = await this.indexDiffs({
-        diffs,
-        latestCommitID: latestIndexedCommit,
-        newCommitID: head.id,
+    // Handle uncommitted changes
+    const dirtyCollection = await this.handleDirtyCollection(head.id);
+
+    // Return dirty if exists, otherwise main
+    return dirtyCollection || mainCollection;
+  }
+
+  private async getOrCreateMainCollection(): Promise<Collection> {
+    try {
+      return await this.chromaClient.getCollection({
+        name: this.mainCollectionName,
+        embeddingFunction: this.embeddingFunction
+      });
+    } catch {
+      // Doesn't exist - create it
+      return await this.chromaClient.createCollection({
+        name: this.mainCollectionName,
+        embeddingFunction: this.embeddingFunction,
+        metadata: {
+          repositoryPath: this.repository.path,
+          repositoryName: path.basename(this.repository.path)
+        }
       });
     }
-
-    const workingTreeDiffs = await this.repository.workingTreeDiffs(head.id);
-    if (!workingTreeDiffs.clean) {
-      const dirtyName = await this.dirtyCollectionName(
-        head.id,
-        workingTreeDiffs,
-      );
-
-      try {
-        latestCollection = await this.chromaClient.getCollection({
-          name: dirtyName,
-        });
-      } catch {
-        latestCollection = await this.indexDiffs({
-          diffs: workingTreeDiffs,
-          latestCommitID: head.id,
-          dirtyName,
-        });
-      }
-    }
-
-    return latestCollection;
   }
 
-  private async latestIndexedCommit(): Promise<string | undefined> {
-    const latestRecord = await this.commitsCollection.get<{
-      latest: boolean;
-    }>({ where: { latest: true } });
-
-    if (latestRecord.ids.length === 0) {
-      return undefined;
-    }
-
-    return latestRecord.ids[0];
-  }
-
-  private async indexRepository(commit: CommitDetails): Promise<Collection> {
+  private async indexFullRepository(collection: Collection, commit: CommitDetails): Promise<void> {
     const ig = ignore();
     const gitignore = path.join(this.repository.path, ".gitignore");
     if (fs.existsSync(gitignore)) {
       const content = await fs.promises.readFile(gitignore, "utf8");
       ig.add(content);
       ig.add(".git");
-    }
-
-    try {
-      await this.commitsCollection.add({
-        ids: [commit.id],
-        documents: [commit.message],
-        metadatas: [{ latest: true }],
-      });
-    } catch (error) {
-      throw new AgentError("Failed to add record to commits collection", error);
-    }
-
-    let collection: Collection;
-    try {
-      collection = await this.chromaClient.getOrCreateCollection({
-        name: commit.id,
-        embeddingFunction: new OpenAIEmbeddingFunction({
-          modelName: "text-embedding-3-large",
-        }),
-      });
-    } catch (error) {
-      throw new AgentError(
-        "Failed to create collection for repository indexing",
-        error,
-      );
     }
 
     let chunks: Chunk[] = [];
@@ -210,109 +191,114 @@ export class Indexer {
       chunks = await Indexer.addBatch(chunks, collection);
     }
 
-    return collection;
-  }
-
-  private async indexDiffs({
-    diffs,
-    latestCommitID,
-    newCommitID,
-    dirtyName,
-  }: {
-    diffs: Diffs;
-    latestCommitID: string;
-    newCommitID?: string;
-    dirtyName?: string;
-  }) {
-    if (!newCommitID && !dirtyName) {
-      throw new AgentError(
-        "Must provide either a new commit ID or dirty collection name to index diffs",
-      );
-    }
-
-    let latestCollection: Collection;
-
-    try {
-      latestCollection = await this.chromaClient.getCollection({
-        name: latestCommitID,
-      });
-    } catch (error) {
-      throw new AgentError(`Failed to get collection ${latestCommitID}`, error);
-    }
-
-    let newCollection: Collection;
-
-    try {
-      newCollection = await latestCollection.fork({
-        name: newCommitID || dirtyName!,
-      });
-    } catch (error) {
-      throw new AgentError(
-        `Failed to fork collection ${latestCommitID}`,
-        error,
-      );
-    }
-
-    if (newCommitID) {
-      try {
-        await this.commitsCollection.upsert({
-          ids: [latestCommitID, newCommitID],
-          metadatas: [{ latest: null }, { latest: true }],
-        });
-      } catch (error) {
-        throw new AgentError("Failed to update commits collection", error);
+    // Update metadata with indexed commit info
+    await collection.modify({
+      metadata: {
+        lastIndexedCommit: commit.id,
+        lastIndexedAt: new Date().toISOString(),
+        repositoryPath: this.repository.path,
+        repositoryName: path.basename(this.repository.path)
       }
-    }
-
-    await newCollection.delete({
-      where: {
-        filePath: {
-          $in: [...diffs.added, ...diffs.deleted, ...diffs.modified],
-        },
-      },
     });
+  }
 
-    let chunks: Chunk[] = [];
-    for (const filePath of [...diffs.added, ...diffs.modified]) {
-      const fileChunks = await this.chunker.chunkFile(filePath);
-      chunks.push(...fileChunks);
-      if (chunks.length > Indexer.BATCH_SIZE) {
-        chunks = await Indexer.addBatch(chunks, newCollection);
+  private async updateIncremental(
+    collection: Collection,
+    diffs: Diffs,
+    newCommitId: string
+  ): Promise<void> {
+    // Step 1: Delete old chunks for modified/deleted files
+    const filesToDelete = [...diffs.modified, ...diffs.deleted];
+    if (filesToDelete.length > 0) {
+      await collection.delete({
+        where: {
+          filePath: { $in: filesToDelete }
+        }
+      });
+    }
+
+    // Step 2: Add new chunks for added/modified files
+    const filesToAdd = [...diffs.added, ...diffs.modified];
+    if (filesToAdd.length > 0) {
+      let chunks: Chunk[] = [];
+      for (const filePath of filesToAdd) {
+        const fileChunks = await this.chunker.chunkFile(filePath);
+        chunks.push(...fileChunks);
+        if (chunks.length > Indexer.BATCH_SIZE) {
+          chunks = await Indexer.addBatch(chunks, collection);
+        }
+      }
+
+      while (chunks.length > 0) {
+        chunks = await Indexer.addBatch(chunks, collection);
       }
     }
 
-    while (chunks.length > 0) {
-      chunks = await Indexer.addBatch(chunks, newCollection);
-    }
-
-    return newCollection;
+    // Step 3: Update metadata
+    await collection.modify({
+      metadata: {
+        lastIndexedCommit: newCommitId,
+        lastIndexedAt: new Date().toISOString()
+      }
+    });
   }
 
-  private async dirtyCollectionName(
-    baseCommit: string,
-    diffs: Diffs,
-  ): Promise<string> {
-    const contentHashes: string[] = [];
+  private async handleDirtyCollection(baseCommitId: string): Promise<Collection | null> {
+    const workingTreeDiffs = await this.repository.workingTreeDiffs(baseCommitId);
 
-    for (const file of [...diffs.added, ...diffs.modified].sort()) {
-      const absolutePath = path.join(this.repository.path, file);
-      const content = await fs.promises.readFile(absolutePath, "utf-8");
-      const hash = createHash("sha256")
-        .update(content)
-        .digest("hex")
-        .slice(0, 8);
-      contentHashes.push(`${file}:${hash}`);
+    if (workingTreeDiffs.clean) {
+      // No uncommitted changes - delete dirty collection if exists
+      try {
+        await this.chromaClient.deleteCollection({
+          name: this.dirtyCollectionName
+        });
+      } catch {
+        // Doesn't exist, that's fine
+      }
+      return null;
     }
 
-    for (const file of diffs.deleted.sort()) {
-      contentHashes.push(`${file}:deleted`);
+    console.log('Uncommitted changes detected, updating dirty collection...');
+
+    // Has uncommitted changes - get or create dirty collection
+    let dirtyCollection: Collection;
+    try {
+      dirtyCollection = await this.chromaClient.getCollection({
+        name: this.dirtyCollectionName,
+        embeddingFunction: this.embeddingFunction
+      });
+    } catch {
+      // Create new dirty collection as copy of main
+      dirtyCollection = await this.chromaClient.createCollection({
+        name: this.dirtyCollectionName,
+        embeddingFunction: this.embeddingFunction,
+        metadata: {
+          baseCommit: baseCommitId,
+          createdAt: new Date().toISOString()
+        }
+      });
+
+      // Copy all data from main collection
+      const mainCollection = await this.getOrCreateMainCollection();
+      const allData = await mainCollection.get();
+      if (allData.ids.length > 0) {
+        // Filter out null values from documents and metadatas
+        const documents = (allData.documents || []).filter((d): d is string => d !== null);
+        const metadatas = (allData.metadatas || []).filter((m): m is Record<string, any> => m !== null);
+
+        await dirtyCollection.add({
+          ids: allData.ids,
+          documents,
+          metadatas
+        });
+      }
     }
 
-    const stateHash = createHash("sha256")
-      .update(contentHashes.join("\n"))
-      .digest("hex")
-      .slice(0, 12);
+    // Update with uncommitted changes
+    await this.updateIncremental(dirtyCollection, workingTreeDiffs, 'dirty');
 
-    return `dirty-${baseCommit.slice(0, 8)}-${stateHash}`;
+    console.log(`✓ Updated dirty collection (${workingTreeDiffs.modified.length + workingTreeDiffs.added.length} files)`);
+
+    return dirtyCollection;
   }
 }

@@ -4,9 +4,8 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const envSchema = z.object({
-  CHROMA_API_KEY: z.string().min(1, "CHROMA_API_KEY is required in .env"),
-  CHROMA_TENANT: z.string().min(1, "CHROMA_TENANT is required in .env"),
-  CHROMA_DATABASE: z.string().min(1, "CHROMA_DATABASE is required in .env"),
+  CHROMA_HOST: z.string().default('localhost'),
+  CHROMA_PORT: z.string().default('8000'),
   OPENAI_API_KEY: z.string().min(1, "OPENAI_API_KEY is required in .env"),
 });
 
