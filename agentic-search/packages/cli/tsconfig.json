@@ -7,7 +7,7 @@
     "paths": {
       "@/*": ["./src/*"],
       "@agentic-search/bcp-agent": ["../bcp-agent/src"],
-      "@chroma-cookbooks/agent-framework": ["../../../agent-framework/src"]
+      "@isara-ctx/agent-framework": ["../../../agent-framework/src"]
     }
   },
   "include": ["src/**/*"],

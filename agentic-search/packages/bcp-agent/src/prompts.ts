@@ -1,4 +1,4 @@
-import { Context, PromptsService } from "@chroma-cookbooks/agent-framework";
+import { Context, PromptsService } from "@isara-ctx/agent-framework";
 import { BCPAgentTypes, Step } from "./schemas";
 
 function generatePlan(

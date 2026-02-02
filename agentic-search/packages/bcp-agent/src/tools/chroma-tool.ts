@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Tool } from "@chroma-cookbooks/agent-framework";
+import { Tool } from "@isara-ctx/agent-framework";
 
 export const chromaRecordSchema = z.object({
   id: z.string(),

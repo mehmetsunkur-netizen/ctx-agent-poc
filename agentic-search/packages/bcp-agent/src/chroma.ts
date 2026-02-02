@@ -1,5 +1,5 @@
 import { Collection, GetResult } from "chromadb";
-import { AgentError, getCollection } from "@chroma-cookbooks/agent-framework";
+import { AgentError, getCollection } from "@isara-ctx/agent-framework";
 import { Query, QueryRecordMetadata } from "./types";
 
 const BROWSE_COMP_PLUS_COLLECTION_NAME = "browse-comp-plus";

@@ -1,7 +1,7 @@
 import {
   BaseAgent,
   BaseAgentServices,
-} from "@chroma-cookbooks/agent-framework";
+} from "@isara-ctx/agent-framework";
 import {
   answerSchema,
   BCPAgentTypes,

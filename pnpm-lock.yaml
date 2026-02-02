@@ -44,15 +44,15 @@ importers:
 
   agentic-search/packages/bcp-agent:
     dependencies:
-      '@chroma-cookbooks/agent-framework':
-        specifier: workspace:*
-        version: link:../../../agent-framework
       '@chroma-core/chroma-bm25':
         specifier: ^0.1.10
         version: 0.1.10(chromadb@3.2.2)
       '@chroma-core/default-embed':
         specifier: ^0.1.9
         version: 0.1.9
+      '@isara-ctx/agent-framework':
+        specifier: workspace:*
+        version: link:../../../agent-framework
       chromadb:
         specifier: ^3.1.6
         version: 3.2.2

@@ -27,7 +27,7 @@ The `search-agent` package is the application-specific implementation that confi
 
 ## Project Structure
 
-The `chroma-cookbooks` repo is a monorepo managed with pnpm workspaces.
+The `isara-ctx` repo is a monorepo managed with pnpm workspaces.
 
 * `/agent-framework`
     * Contains the core `BaseAgent` class, which manages the agentic loop (plan, execute, evaluate).

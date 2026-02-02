@@ -4,7 +4,7 @@ import {
   baseOutcomeSchema,
   baseStepSchema,
   BaseSystemEvaluation,
-} from "@chroma-cookbooks/agent-framework";
+} from "@isara-ctx/agent-framework";
 import { z } from "zod";
 
 export const stepSchema = baseStepSchema.extend({

@@ -15,7 +15,7 @@
     "incremental": true,
     "composite": true,
     "paths": {
-      "@chroma-cookbooks/agent-framework": ["../agent-framework/src"]
+      "@isara-ctx/agent-framework": ["../agent-framework/src"]
     }
   },
   "include": ["src/**/*"],

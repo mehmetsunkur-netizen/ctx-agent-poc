@@ -7,7 +7,7 @@ export type {
   BaseEvaluation,
   BaseSystemEvaluation,
   ToolCall,
-} from "@chroma-cookbooks/agent-framework";
+} from "@isara-ctx/agent-framework";
 
 export {
   getToolParamsSymbol,
@@ -15,4 +15,4 @@ export {
   LLMFactory,
   BaseStepStatus,
   getStatusSymbol,
-} from "@chroma-cookbooks/agent-framework";
+} from "@isara-ctx/agent-framework";

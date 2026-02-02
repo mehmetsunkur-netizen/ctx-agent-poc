@@ -1,5 +1,5 @@
 {
-  "name": "@chroma-cookbooks/agent-framework",
+  "name": "@isara-ctx/agent-framework",
   "version": "1.0.0",
   "type": "module",
   "main": "dist/index.js",

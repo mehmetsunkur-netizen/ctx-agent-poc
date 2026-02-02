@@ -1,4 +1,4 @@
-import { LLMServiceConfig, RunConfig } from "@chroma-cookbooks/agent-framework";
+import { LLMServiceConfig, RunConfig } from "@isara-ctx/agent-framework";
 import { Collection } from "chromadb";
 import { BCPAgentStatusHandler } from "./status-handler";
 

@@ -14,7 +14,7 @@
     "typescript": "^5.3.3"
   },
   "dependencies": {
-    "@chroma-cookbooks/agent-framework": "workspace:*",
+    "@isara-ctx/agent-framework": "workspace:*",
     "@chroma-core/chroma-bm25": "^0.1.10",
     "@chroma-core/default-embed": "^0.1.9",
     "chromadb": "^3.1.6",

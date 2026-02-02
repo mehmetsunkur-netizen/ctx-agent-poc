@@ -2,7 +2,7 @@ import { Query } from "./types";
 import {
   AgentStatusHandler,
   ConsoleStatusHandler,
-} from "@chroma-cookbooks/agent-framework";
+} from "@isara-ctx/agent-framework";
 import { BCPAgentTypes } from "./schemas";
 
 export interface BCPAgentStatusHandler extends AgentStatusHandler<BCPAgentTypes> {
