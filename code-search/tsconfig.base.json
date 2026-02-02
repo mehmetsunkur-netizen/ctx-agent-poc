@@ -3,8 +3,6 @@
     "target": "ES2022",
     "module": "ES2022",
     "lib": ["ES2022"],
-    "rootDir": "./src",
-    "outDir": "./dist",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
@@ -15,8 +13,12 @@
     "resolveJsonModule": true,
     "moduleResolution": "bundler",
     "incremental": true,
-    "composite": true
+    "composite": true,
+    "paths": {
+      "@isara-ctx/agent-framework": ["../agent-framework/src"]
+    }
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "exclude": ["node_modules", "dist"],
+  "references": [{ "path": "../agent-framework" }]
 }

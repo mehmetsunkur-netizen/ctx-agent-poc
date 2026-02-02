@@ -2,6 +2,8 @@ packages:
   - agent-framework
   - agentic-search
   - agentic-search/packages/*
+  - code-search
+  - code-search/packages/*
 
 onlyBuiltDependencies:
   - esbuild
