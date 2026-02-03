@@ -169,7 +169,12 @@ export class EvaluationRunner {
 
       clearTimeout(timeoutId);
 
-      const answer = agentResult.answer;
+      // Combine both answer and reason fields for comprehensive scoring
+      // The agent puts concise summary in 'answer' and detailed explanation with
+      // file citations in 'reason'. We need both for accurate file coverage scoring.
+      const answer = agentResult.reason
+        ? `${agentResult.answer}\n\n${agentResult.reason}`
+        : agentResult.answer;
 
       // Score result
       if (verbose) {
