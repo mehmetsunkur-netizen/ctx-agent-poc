@@ -4,6 +4,7 @@ packages:
   - agentic-search/packages/*
   - code-search
   - code-search/packages/*
+  - code-search-eval
 
 onlyBuiltDependencies:
   - esbuild

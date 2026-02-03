@@ -1,0 +1,219 @@
+{
+  "$schema": "./code-search-agent-eval.schema.json",
+  "title": "ChromaDB Admin - Developer Knowledge Assessment",
+  "description": "Comprehensive evaluation questions requiring exploration of the codebase structure, architecture, and design patterns",
+  "version": "2.0",
+  "schemaVersion": "fixed",
+  "repo_path": "/Users/msunkur/exdata/dev/aos-deployments/isara/workspaces/agent/luke.warmer/isara/chromadb-admin",
+  "repo_git_url": "https://github.com/chroma-core/chroma-admin",
+  "totalQuestions": 10,
+  "coverageAreas": [
+    "Data flow",
+    "Authentication",
+    "Complex operations",
+    "Caching strategies",
+    "Architecture patterns",
+    "UI rendering logic",
+    "API integration",
+    "SSR considerations"
+  ],
+  "evaluationNotes": "Each question requires the developer to explore and understand multiple files and their interactions, demonstrating real knowledge of the codebase structure and design decisions.",
+  "questions": [
+    {
+      "id": 1,
+      "difficulty": "Moderate",
+      "category": "Data Flow and State Management",
+      "question": "When a user searches for records using a text query, trace the complete flow from user input to displaying results. Name at least 4 files involved in this process and explain what each file's responsibility is.",
+      "requiredFiles": [
+        "src/components/RecordPage/SearchPanel/index.tsx",
+        "src/app/api/embedding/route.ts",
+        "src/app/api/collections/[collectionName]/records/route.ts",
+        "src/lib/server/db.ts",
+        "src/components/RecordPage/RecordPanel/index.tsx",
+        "src/lib/client/query.ts"
+      ],
+      "keywords": [
+        "useGetEmbedding",
+        "queryAtom",
+        "useGetCollectionRecords",
+        "queryRecords",
+        "embedding",
+        "vector"
+      ],
+      "answer": "## Summary\n\nThe flow involves 6 main files from user input through embedding generation, API calls, database queries, and final rendering.\n\n## Files and Responsibilities\n\n### 1. `src/components/RecordPage/SearchPanel/index.tsx`\n**Responsibility:** Captures user input and calls `useGetEmbedding()` mutation to convert text to vector\n\n### 2. `src/app/api/embedding/route.ts`\n**Responsibility:** API endpoint that receives the text and calls embedding service (OpenAI/Ollama/LM Studio) to generate the vector\n\n### 3. `src/app/api/collections/[collectionName]/records/route.ts`\n**Responsibility:** POST handler receives the embedding vector and calls `queryRecords()`\n\n### 4. `src/lib/server/db.ts`\n**Responsibility:** Contains `queryRecords()` function that creates ChromaClient, gets collection, and executes `collection.query()` with the vector\n\n### 5. `src/components/RecordPage/RecordPanel/index.tsx`\n**Responsibility:** Uses `useGetCollectionRecords()` hook to fetch data and displays results in RecordTable\n\n### 6. `src/lib/client/query.ts`\n**Responsibility:** Defines `useGetCollectionRecords()` React Query hook that manages caching and fetching"
+    },
+    {
+      "id": 2,
+      "difficulty": "Advanced",
+      "category": "Authentication Implementation",
+      "question": "The application supports three types of authentication. Where are these auth types configured by the user, how are they stored, and where are they actually used when making ChromaDB requests? Name the specific files and functions.",
+      "requiredFiles": [
+        "src/app/setup/page.tsx",
+        "src/lib/client/localstorage.ts",
+        "src/lib/types.ts",
+        "src/lib/server/db.ts",
+        "src/lib/server/params.ts"
+      ],
+      "keywords": [
+        "no_auth",
+        "token",
+        "basic_auth",
+        "saveConfig",
+        "getServerParams",
+        "ChromaClient"
+      ],
+      "answer": "## Authentication Types\n\nThe application supports three auth types: `no_auth`, `token`, and `basic_auth`\n\n## Configuration\n\n**File:** `src/app/setup/page.tsx`\n- User selects auth type and provides credentials\n\n## Storage\n\n**File:** `src/lib/client/localstorage.ts`\n- **Function:** `saveConfig()`\n- **Storage Key:** `chromadb-admin-config`\n- **Location:** localStorage (browser)\n\n## Type Definition\n\n**File:** `src/lib/types.ts`\n- **Interface:** `AppConfig` defines authType and related credential fields\n\n## Usage\n\n**File:** `src/lib/server/db.ts`\n- Every function (`fetchCollections`, `queryRecords`, etc.) extracts auth params and creates ChromaClient with authentication\n- **Code Pattern:**\n```typescript\nconst client = new ChromaClient({\n  path: connectionString,\n  auth: { provider: authType, credentials: authCredentials }\n})\n```\n\n## Transmission\n\n**File:** `src/lib/server/params.ts`\n- **Function:** `getServerParams()`\n- All API routes receive auth parameters via query string parameters"
+    },
+    {
+      "id": 3,
+      "difficulty": "Advanced",
+      "category": "Collection Rename Architecture",
+      "question": "Renaming a collection is not a simple rename operation. Explain why, and describe the complete implementation including all files involved and the step-by-step process.",
+      "requiredFiles": [
+        "src/app/collections/[name]/layout.tsx",
+        "src/lib/client/query.ts",
+        "src/app/api/collections/route.ts",
+        "src/lib/server/db.ts"
+      ],
+      "keywords": [
+        "useRenameCollection",
+        "updateCollection",
+        "createCollection",
+        "deleteCollection",
+        "copy data"
+      ],
+      "answer": "## Why It's Complex\n\nChromaDB doesn't support native collection renaming, so we must copy all data to a new collection and delete the old one.\n\n## Files Involved\n\n### 1. `src/app/collections/[name]/layout.tsx`\n**Role:** Triggers rename modal from Collection Action Menu\n\n### 2. `src/lib/client/query.ts`\n**Role:** `useRenameCollection()` mutation hook that calls the API\n\n### 3. `src/app/api/collections/route.ts`\n**Role:** PATCH handler calls `updateCollection()`\n\n### 4. `src/lib/server/db.ts`\n**Role:** `updateCollection()` function contains the rename logic\n\n## Step-by-Step Process\n\n(From `updateCollection()` in `db.ts`)\n\n1. Get the old collection from ChromaDB\n2. Fetch ALL records from old collection using `collection.get()`\n3. Create new collection with the new name using `client.createCollection()`\n4. Add all fetched records to new collection using `newCollection.add()`\n5. Delete the old collection using `client.deleteCollection()`\n6. Invalidate React Query cache for collections list"
+    },
+    {
+      "id": 4,
+      "difficulty": "Moderate",
+      "category": "Query Key Strategy",
+      "question": "React Query uses query keys for caching. What query key structure is used for fetching collection records, and why does this structure include multiple parameters? Which file defines this?",
+      "requiredFiles": [
+        "src/lib/client/query.ts"
+      ],
+      "keywords": [
+        "useGetCollectionRecords",
+        "queryKey",
+        "cache",
+        "collections",
+        "records"
+      ],
+      "answer": "## Location\n\n**File:** `src/lib/client/query.ts`\n**Function:** `useGetCollectionRecords()`\n\n## Query Key Structure\n\n```typescript\n['collections', collectionName, 'records', query, currentPage, sourceFilter]\n```\n\n## Why Multiple Parameters?\n\n### `collectionName`\nDifferent collections have different data\n\n### `'records'`\nDistinguishes from other collection-related queries\n\n### `query`\nDifferent search queries return different results (vector/ID vs. paginated browse)\n\n### `currentPage`\nDifferent pages contain different records\n\n### `sourceFilter`\nFiltering by source changes which records are returned\n\n## Benefits\n\nEnsures React Query creates separate cache entries for different combinations, preventing stale data when user changes search parameters. \n\n**Example:** Page 1 with no filters vs. page 2 with GitHub filter would be cached separately."
+    },
+    {
+      "id": 5,
+      "difficulty": "Moderate-Advanced",
+      "category": "Parameter Passing Pattern",
+      "question": "The application uses a 'stateless API' approach. How are connection details (connection string, auth credentials, tenant, database) passed from the client to the server? Name the files that implement this pattern and explain why this design was chosen.",
+      "requiredFiles": [
+        "src/lib/server/params.ts",
+        "src/lib/client/query.ts",
+        "src/app/api/**/*.ts"
+      ],
+      "keywords": [
+        "getServerParams",
+        "getClientParams",
+        "query string",
+        "stateless",
+        "connectionString"
+      ],
+      "answer": "## Pattern\n\nConnection details are passed via query string parameters on every API request, not stored in server-side sessions.\n\n## Files Implementing This\n\n### 1. `src/lib/server/params.ts`\n- **Function:** `getServerParams()`\n- **Role:** Extracts all connection details from URL query parameters\n\n### 2. `src/lib/client/query.ts`\n- **Function:** `getClientParams()`\n- **Role:** All query hooks call this to retrieve config from localStorage and append it as URL params\n\n### 3. All API routes (`src/app/api/**/*.ts`)\n- **Role:** Call `getServerParams(request.nextUrl)` to extract connection details\n\n## Example URL\n\n```\n/api/collections?connectionString=http://localhost:8000&authType=token&authToken=abc123&tenant=default_tenant&database=default_database\n```\n\n## Why This Design?\n\n### Stateless\nNo server-side session management required\n\n### Multi-tenant\nEasy to support multiple ChromaDB instances simultaneously\n\n### Deployment-friendly\nWorks in serverless/edge environments\n\n### Security\nCredentials never stored on server, only in client localStorage"
+    },
+    {
+      "id": 6,
+      "difficulty": "Moderate",
+      "category": "Document Rendering Logic",
+      "question": "When viewing a record's details, the document can be displayed as either markdown or code with syntax highlighting. Where is this decision made, what determines which renderer is used, and which libraries handle the rendering?",
+      "requiredFiles": [
+        "src/components/DocumentDisplay/index.tsx",
+        "src/components/RecordPage/RecordDetailModal/index.tsx"
+      ],
+      "keywords": [
+        "CodeHighlight",
+        "ReactMarkdown",
+        "metadata.language",
+        "@mantine/code-highlight",
+        "react-markdown"
+      ],
+      "answer": "## Location\n\n`src/components/DocumentDisplay/index.tsx` or `src/components/RecordPage/RecordDetailModal/index.tsx`\n\n## Decision Logic\n\n**Condition:** If metadata contains a `language` field\n- **Then:** Render as code with syntax highlighting\n- **Else:** Render as markdown\n\n## Libraries Used\n\n### Code Rendering\n- **Library:** `@mantine/code-highlight`\n- **Wraps:** Highlight.js\n- **Features:** Line numbers enabled\n\n### Markdown Rendering\n- **Library:** `react-markdown`\n- **Features:** GitHub Flavored Markdown support\n\n## Code Pattern\n\n```typescript\nrecord.metadata?.language ? (\n  <CodeHighlight \n    code={record.document} \n    language={record.metadata.language} \n  />\n) : (\n  <ReactMarkdown>{record.document}</ReactMarkdown>\n)\n```"
+    },
+    {
+      "id": 7,
+      "difficulty": "Moderate",
+      "category": "Jotai Atoms and Side Effects",
+      "question": "The application uses Jotai for local state management. When a user performs a 'Query Similar' action on a record, which atoms are updated and in what file? Trace how this triggers a new search.",
+      "requiredFiles": [
+        "src/components/RecordPage/atom.ts",
+        "src/components/RecordPage/RecordPanel/index.tsx",
+        "src/components/RecordPage/RecordRowActionMenu/index.tsx"
+      ],
+      "keywords": [
+        "queryAtom",
+        "currentPageAtom",
+        "handleQuerySimilar",
+        "setQuery",
+        "setCurrentPage",
+        "useEffect"
+      ],
+      "answer": "## Atom Definition File\n\n`src/components/RecordPage/atom.ts`\n\n## Atom Update Location\n\n`src/components/RecordPage/RecordPanel/index.tsx` or `RecordRowActionMenu/index.tsx`\n\n## Atoms Updated\n\n### 1. `queryAtom`\nSet to the record's embedding vector (array of numbers converted to string)\n\n### 2. `currentPageAtom`\nReset to 1 (first page of results)\n\n## Flow\n\n1. User clicks 'Query Similar' on a record → `handleQuerySimilar()` function executes\n2. Atoms are updated: `setQuery(record.embedding)` and `setCurrentPage(1)`\n3. `RecordPanel` component has a `useEffect` that watches `query` and `currentPage`\n4. When these values change, it triggers `refetch()` from `useGetCollectionRecords()`\n5. The refetch calls `POST /api/collections/[name]/records` with the embedding vector\n6. Results are displayed in the RecordTable\n\n## Key Insight\n\nThe atom updates automatically trigger React Query to refetch data because the query key includes the query parameter, causing the component to re-render with new results."
+    },
+    {
+      "id": 8,
+      "difficulty": "Advanced",
+      "category": "Embedding API Flexibility",
+      "question": "The application supports multiple embedding model backends (OpenAI, Ollama, LM Studio). Where is the logic that handles these different API formats, and what are the key differences in how they're called?",
+      "requiredFiles": [
+        "src/app/api/embedding/route.ts",
+        "src/app/setup/page.tsx"
+      ],
+      "keywords": [
+        "OpenAI",
+        "Ollama",
+        "LM Studio",
+        "embeddings.create",
+        "modelUrl",
+        "embedding"
+      ],
+      "answer": "## Location\n\n**File:** `src/app/api/embedding/route.ts` - POST handler\n\n## Different Formats Handled\n\n### 1. OpenAI-compatible APIs\n\n**Supported Services:** OpenAI, LM Studio with `/v1/embeddings`, Ollama with `/v1`\n\n**Implementation:**\n```typescript\nconst openai = new OpenAI({ baseURL: modelUrl, apiKey: 'not-needed' })\nconst response = await openai.embeddings.create({ model, input: text })\nreturn response.data[0].embedding\n```\n\n### 2. Ollama Native API\n\n**Endpoints:** `/api/embeddings` or `/api/embed`\n\n**Implementation:**\n```typescript\nconst response = await fetch(modelUrl, {\n  method: 'POST',\n  body: JSON.stringify({ model, prompt: text })\n})\nreturn response.embedding\n```\n\n## Detection Logic\n\nChecks the `modelUrl` path:\n- If ends with `/v1` or `/v1/embeddings` → Use OpenAI SDK\n- If ends with `/api/embeddings` or `/api/embed` → Use Ollama native fetch\n\n## Configuration Location\n\n**File:** `src/app/setup/page.tsx`\n- User provides `embeddingModelUrl` and `embeddingModel` name\n- Stored in `AppConfig` in localStorage"
+    },
+    {
+      "id": 9,
+      "difficulty": "Advanced",
+      "category": "Cache Invalidation Strategy",
+      "question": "When a user deletes a record, multiple queries need to be invalidated to keep the UI in sync. Which queries are invalidated, where is this logic implemented, and why is each one necessary?",
+      "requiredFiles": [
+        "src/lib/client/query.ts"
+      ],
+      "keywords": [
+        "useDeleteRecord",
+        "invalidateQueries",
+        "queryClient",
+        "onSuccess",
+        "cache"
+      ],
+      "answer": "## Location\n\n**File:** `src/lib/client/query.ts`\n**Function:** In `useDeleteRecord()` mutation's `onSuccess` callback\n\n## Invalidation Code\n\n```typescript\nqueryClient.invalidateQueries({ \n  queryKey: ['collections', collectionName, 'records'] \n})\n```\n\n## Why Necessary?\n\n### Record list queries\nThe deleted record should disappear from current view\n\n### Total count\nPagination needs to reflect new total (might remove entire page)\n\n### All pages and filters\nUsing partial key `['collections', collectionName, 'records']` invalidates ALL variations (different pages, different filters, different queries)\n\n## Cascading Effects\n\n1. Invalidation triggers automatic refetch if component is mounted\n2. RecordPanel rerenders with updated data\n3. Pagination component adjusts if total pages decreased\n4. If current page becomes empty, user might be redirected to previous page\n\n## Similar Patterns\n\n### `useDeleteCollection()`\n- **Invalidates:** `['collections']`\n- **Effect:** Updates collection list\n\n### `useRenameCollection()`\n- **Invalidates:** `['collections']`\n- **Effect:** Updates collection list and navigates to new collection URL"
+    },
+    {
+      "id": 10,
+      "difficulty": "Moderate",
+      "category": "SSR Safety and LocalStorage",
+      "question": "Next.js renders components on both server and client, but localStorage only exists in the browser. How does the application safely access localStorage without causing SSR errors? Show the specific pattern used and which file implements it.",
+      "requiredFiles": [
+        "src/lib/client/localstorage.ts",
+        "src/lib/client/query.ts",
+        "src/app/setup/page.tsx",
+        "src/app/collections/[name]/layout.tsx"
+      ],
+      "keywords": [
+        "typeof window",
+        "localStorage",
+        "SSR",
+        "getDefaultConfig",
+        "loadConfig",
+        "saveConfig"
+      ],
+      "answer": "## Location\n\n**File:** `src/lib/client/localstorage.ts`\n\n## Pattern\n\n**Check Expression:** `typeof window === 'undefined'`\n- **Server behavior:** Return default config during SSR\n- **Client behavior:** Normal localStorage operations proceed\n\n## Implementation\n\n### `loadConfig()` function\n```typescript\nif (typeof window === 'undefined') {\n  return getDefaultConfig()  // Return defaults during SSR\n}\n\nconst stored = localStorage.getItem('chromadb-admin-config')\nreturn stored ? JSON.parse(stored) : getDefaultConfig()\n```\n\n### `saveConfig()` function\n```typescript\nif (typeof window === 'undefined') {\n  return  // No-op during SSR\n}\n\nlocalStorage.setItem('chromadb-admin-config', JSON.stringify(config))\n```\n\n## Why It Works\n\n### Check mechanism\n`typeof window === 'undefined'` checks if code is running on server (Node.js) or client (browser)\n\n### Server-side\nReturns default config, localStorage access is skipped\n\n### Client-side\nNormal localStorage operations proceed\n\n### No errors\nServer rendering succeeds with defaults, client hydration loads real config\n\n## Used In\n\n- `src/lib/client/query.ts` - `getClientParams()` calls `loadConfig()`\n- `src/app/setup/page.tsx` - Loads and saves configuration\n- `src/app/collections/[name]/layout.tsx` - Displays connection info from config"
+    }
+  ]
+}

@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/code-eval.schema.json",
+  "title": "Code Evaluation Schema",
+  "description": "JSON schema for validating developer knowledge assessment files",
+  "type": "object",
+  "required": [
+    "title",
+    "description",
+    "version",
+    "schemaVersion",
+    "repo_path",
+    "totalQuestions",
+    "questions"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Reference to this schema file"
+    },
+    "title": {
+      "type": "string",
+      "description": "Title of the evaluation",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of what this evaluation assesses",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "description": "Version of the evaluation content",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "schemaVersion": {
+      "type": "string",
+      "description": "Version of the schema structure",
+      "enum": ["fixed"]
+    },
+    "repo_path": {
+      "type": "string",
+      "description": "Absolute path to the repository on local filesystem",
+      "minLength": 1
+    },
+    "repo_git_url": {
+      "type": "string",
+      "description": "Optional Git repository URL",
+      "format": "uri"
+    },
+    "totalQuestions": {
+      "type": "integer",
+      "description": "Total number of questions in this evaluation",
+      "minimum": 1
+    },
+    "coverageAreas": {
+      "type": "array",
+      "description": "List of knowledge areas covered by questions",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "evaluationNotes": {
+      "type": "string",
+      "description": "Additional notes about the evaluation"
+    },
+    "questions": {
+      "type": "array",
+      "description": "Array of evaluation questions",
+      "items": {
+        "$ref": "#/$defs/question"
+      },
+      "minItems": 1
+    }
+  },
+  "$defs": {
+    "question": {
+      "type": "object",
+      "required": [
+        "id",
+        "difficulty",
+        "category",
+        "question",
+        "requiredFiles",
+        "keywords",
+        "answer"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "Unique identifier for the question",
+          "minimum": 1
+        },
+        "difficulty": {
+          "type": "string",
+          "description": "Difficulty level of the question",
+          "enum": [
+            "Easy",
+            "Moderate",
+            "Moderate-Advanced",
+            "Advanced",
+            "Expert"
+          ]
+        },
+        "category": {
+          "type": "string",
+          "description": "Category or topic area of the question",
+          "minLength": 1
+        },
+        "question": {
+          "type": "string",
+          "description": "The question text to be asked to the developer",
+          "minLength": 10
+        },
+        "requiredFiles": {
+          "type": "array",
+          "description": "List of files that should be explored to answer this question",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "keywords": {
+          "type": "array",
+          "description": "Key terms/concepts that should appear in a correct answer",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "answer": {
+          "type": "string",
+          "description": "The expected answer in markdown format",
+          "minLength": 20
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
