@@ -1,0 +1,29 @@
+{
+  "scorer": {
+    "method": "hybrid",
+    "weights": {
+      "fileCoverage": 0.2,
+      "keywordCoverage": 0.2,
+      "semanticQuality": 0.6
+    },
+    "passThreshold": 70,
+    "llmJudge": {
+      "enabled": true,
+      "model": "gpt-5.2-2025-12-11",
+      "temperature": 0.1
+    }
+  },
+  "agent": {
+    "llm": {
+      "model": "gpt-5.2-2025-12-11"
+    },
+    "maxPlanSize": 10,
+    "maxStepIterations": 5
+  },
+  "runner": {
+    "timeout": 120000
+  },
+  "reporter": {
+    "outputDir": "./results"
+  }
+}

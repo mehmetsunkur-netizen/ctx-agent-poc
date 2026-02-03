@@ -1,0 +1,67 @@
+{
+  "$schema": "./code-search-agent-eval.schema.json",
+  "title": "Minimal Test Evaluation",
+  "description": "A minimal test dataset with 3 questions for quick evaluation testing",
+  "version": "1.0",
+  "schemaVersion": "fixed",
+  "repo_path": "/Users/msunkur/exdata/dev/aos-deployments/isara/workspaces/agent/luke.warmer/isara/isara-github/otx-ctx-agent/ctx-agent-poc",
+  "totalQuestions": 3,
+  "coverageAreas": [
+    "Architecture",
+    "Configuration"
+  ],
+  "evaluationNotes": "This is a minimal test dataset using the current repository for validation",
+  "questions": [
+    {
+      "id": 1,
+      "difficulty": "Easy",
+      "category": "Architecture",
+      "question": "What is the purpose of the BaseAgent class in the agent-framework?",
+      "requiredFiles": [
+        "agent-framework/src/agent/base-agent.ts"
+      ],
+      "keywords": [
+        "BaseAgent",
+        "orchestrator",
+        "planner",
+        "executor",
+        "evaluator"
+      ],
+      "answer": "BaseAgent is the main orchestrator in the agent framework. It coordinates three components: BasePlanner (for creating plans), BaseExecutor (for executing steps), and BaseEvaluator (for assessing progress). It manages the agentic loop, handling plan creation, execution, and evaluation cycles."
+    },
+    {
+      "id": 2,
+      "difficulty": "Moderate",
+      "category": "Configuration",
+      "question": "How does the code-search-eval package manage configuration?",
+      "requiredFiles": [
+        "code-search-eval/src/utils/config-loader.ts",
+        "code-search-eval/config/default.json"
+      ],
+      "keywords": [
+        "configuration",
+        "loadConfig",
+        "default.json",
+        "scorer",
+        "weights"
+      ],
+      "answer": "The code-search-eval package uses a config-loader utility that loads configuration from JSON files. It supports a default configuration in config/default.json and can accept custom config file paths. The configuration includes scorer settings (method, weights, passThreshold), agent settings (LLM model, max iterations), runner settings (timeout), and reporter settings (output directory). It also supports environment variable substitution for API keys."
+    },
+    {
+      "id": 3,
+      "difficulty": "Easy",
+      "category": "Architecture",
+      "question": "What package manager does this monorepo use?",
+      "requiredFiles": [
+        "pnpm-workspace.yaml",
+        "package.json"
+      ],
+      "keywords": [
+        "pnpm",
+        "workspace",
+        "monorepo"
+      ],
+      "answer": "This monorepo uses pnpm as its package manager. The pnpm-workspace.yaml file defines workspace packages including agent-framework, agentic-search, code-search, and code-search-eval. Workspaces are managed using the workspace:* protocol for internal dependencies."
+    }
+  ]
+}
