@@ -17,11 +17,14 @@ const cli = meow(
     $ code-search-eval <dataset-path>
 
   ${chalk.underline('Options')}
-    --config, -c     Config file path (default: ./eval.config.json)
-    --output, -o     Output directory (default: ./results)
-    --format, -f     Report formats: json,markdown (default: json,markdown)
-    --verbose, -v    Verbose logging
-    --help           Show this help message
+    --config, -c            Config file path (default: ./eval.config.json)
+    --output, -o            Output directory (default: ./results)
+    --format, -f            Report formats: json,markdown (default: json,markdown)
+    --timeout               Timeout per question in milliseconds (default: 120000)
+    --max-step-iterations   Max tool call iterations per step (default: 5)
+    --max-plan-size         Max number of steps in plan (default: 10)
+    --verbose, -v           Verbose logging
+    --help                  Show this help message
 
   ${chalk.underline('Examples')}
     $ code-search-eval dataset/chromadb-admin-eval.json
@@ -33,22 +36,31 @@ const cli = meow(
     flags: {
       config: {
         type: 'string',
-        alias: 'c',
+        shortFlag: 'c',
       },
       output: {
         type: 'string',
-        alias: 'o',
+        shortFlag: 'o',
         default: './results',
       },
       format: {
         type: 'string',
-        alias: 'f',
+        shortFlag: 'f',
         default: 'json,markdown',
       },
       verbose: {
         type: 'boolean',
-        alias: 'v',
+        shortFlag: 'v',
         default: false,
+      },
+      maxStepIterations: {
+        type: 'number',
+      },
+      maxPlanSize: {
+        type: 'number',
+      },
+      timeout: {
+        type: 'number',
       },
     },
   }

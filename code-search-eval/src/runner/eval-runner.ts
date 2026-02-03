@@ -191,7 +191,31 @@ export class EvaluationRunner {
       };
     } catch (error) {
       const duration = (Date.now() - startTime) / 1000;
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      // Enhanced error message with stack trace if verbose
+      let errorMessage = 'Unknown error';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        if (verbose) {
+          console.error(chalk.red(`  Error details:`));
+          console.error(chalk.gray(`  Message: ${error.message}`));
+
+          // Check for cause chain
+          if ('cause' in error && error.cause) {
+            const cause = error.cause as Error;
+            console.error(chalk.gray(`  Cause: ${cause.message}`));
+            if (cause.stack) {
+              console.error(chalk.gray(`  Cause stack:`));
+              console.error(chalk.gray(cause.stack));
+            }
+          }
+
+          if (error.stack) {
+            console.error(chalk.red(`  Stack trace:`));
+            console.error(chalk.gray(error.stack));
+          }
+        }
+      }
 
       return {
         questionId: question.id,

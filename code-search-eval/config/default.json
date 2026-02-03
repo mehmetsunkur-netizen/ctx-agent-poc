@@ -9,13 +9,13 @@
     "passThreshold": 70,
     "llmJudge": {
       "enabled": true,
-      "model": "gpt-4o-mini",
+      "model": "gpt-5.2-2025-12-11",
       "temperature": 0.1
     }
   },
   "agent": {
     "llm": {
-      "model": "gpt-4o"
+      "model": "gpt-5.2-2025-12-11"
     },
     "maxPlanSize": 10,
     "maxStepIterations": 5

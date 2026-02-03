@@ -52,5 +52,19 @@ export function mergeConfigWithFlags(
     merged.reporter.outputDir = flags.output;
   }
 
+  // Override agent configuration if provided
+  if (flags.maxStepIterations !== undefined) {
+    merged.agent.maxStepIterations = flags.maxStepIterations;
+  }
+
+  if (flags.maxPlanSize !== undefined) {
+    merged.agent.maxPlanSize = flags.maxPlanSize;
+  }
+
+  // Override runner configuration if provided
+  if (flags.timeout !== undefined) {
+    merged.runner.timeout = flags.timeout;
+  }
+
   return merged;
 }
