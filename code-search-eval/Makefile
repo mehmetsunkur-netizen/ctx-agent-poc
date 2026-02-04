@@ -94,6 +94,35 @@ example-chromadb: ## Example: Evaluate ChromaDB dataset with code-search
 example-chromadb-codex: ## Example: Evaluate ChromaDB dataset with Codex
 	@$(MAKE) eval-codex DATASET=dataset/chromadb-admin-eval.json
 
+.PHONY: example-chromadb-claude
+example-chromadb-claude: ## Example: Evaluate ChromaDB dataset with Claude
+	@$(MAKE) eval-claude DATASET=dataset/chromadb-admin-eval.json
+
+.PHONY: example-frigate
+example-frigate: ## Example: Evaluate Frigate dataset with code-search
+	@$(MAKE) eval-code-search DATASET=dataset/frigate-eval.json
+
+.PHONY: example-frigate-codex
+example-frigate-codex: ## Example: Evaluate Frigate dataset with Codex
+	@$(MAKE) eval-codex DATASET=dataset/frigate-eval.json
+
+.PHONY: example-frigate-claude
+example-frigate-claude: ## Example: Evaluate Frigate dataset with Claude
+	@$(MAKE) eval-claude DATASET=dataset/frigate-eval.json
+
+.PHONY: example-frigate-all
+example-frigate-all: ## Example: Evaluate Frigate dataset with all agents
+	@echo "========================================="
+	@echo "Running Frigate evaluation with all agents"
+	@echo "========================================="
+	@$(MAKE) eval-code-search DATASET=dataset/frigate-eval.json
+	@echo ""
+	@$(MAKE) eval-codex DATASET=dataset/frigate-eval.json
+	@echo ""
+	@$(MAKE) eval-claude DATASET=dataset/frigate-eval.json
+	@echo ""
+	@echo "✓ All Frigate evaluations complete. Check ./results/ for outputs."
+
 .PHONY: example-quick-test
 example-quick-test: ## Example: Quick test with minimal dataset
 	@echo "Running quick test (adjust DATASET if needed)..."

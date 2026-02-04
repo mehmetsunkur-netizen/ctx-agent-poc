@@ -1,0 +1,301 @@
+{
+  "$schema": "https://example.com/schemas/code-eval.schema.json",
+  "title": "Frigate NVR Developer Assessment",
+  "description": "Comprehensive evaluation assessing developer knowledge of the Frigate NVR codebase architecture, including multi-process communication, object detection pipelines, event management, storage systems, and real-time video processing workflows",
+  "version": "1.0",
+  "schemaVersion": "fixed",
+  "repo_path": "/Users/msunkur/exdata/dev/aos-deployments/isara/workspaces/agent/luke.warmer/isara/research/frigate",
+  "repo_git_url": "https://github.com/blakeblackshear/frigate",
+  "totalQuestions": 10,
+  "coverageAreas": [
+    "Event Lifecycle Management",
+    "Inter-Process Communication",
+    "PTZ Camera Integration",
+    "Review & Alert System",
+    "Storage & Retention Policies",
+    "Semantic Search & Embeddings",
+    "Authentication & Authorization",
+    "Detection Pipeline Optimization",
+    "Notification Dispatching",
+    "Runtime Configuration Updates"
+  ],
+  "evaluationNotes": "This assessment focuses on complex multi-file workflows that span multiple components of the Frigate system. Candidates should demonstrate understanding of how different processes communicate, how data flows through the system, and how architectural decisions impact performance and reliability.",
+  "questions": [
+    {
+      "id": 1,
+      "difficulty": "Advanced",
+      "category": "Event Lifecycle Management",
+      "question": "When a camera detects a person entering a specific zone, describe the complete workflow from frame capture to the point where the event is available for semantic search. Include all key processes, shared memory interactions, database updates, and the decision points that determine if a recording segment is retained or deleted.",
+      "requiredFiles": [
+        "frigate/video.py",
+        "frigate/object_detection/base.py",
+        "frigate/track/object_processing.py",
+        "frigate/track/tracked_object.py",
+        "frigate/timeline.py",
+        "frigate/record/maintainer.py",
+        "frigate/embeddings/maintainer.py",
+        "frigate/models.py"
+      ],
+      "keywords": [
+        "CameraTracker",
+        "capture_frames",
+        "shared memory",
+        "DetectorRunner",
+        "TrackedObject",
+        "zone detection",
+        "EventUpdatePublisher",
+        "TrackedObjectProcessor",
+        "TimelineProcessor",
+        "RecordingMaintainer",
+        "retention policy",
+        "EmbeddingProcess",
+        "ONNX model",
+        "SQLite-vec"
+      ],
+      "answer": "## Complete Event Lifecycle Workflow\n\n### 1. Frame Capture\n- `CameraTracker` in `video.py` spawns FFmpeg process\n- `capture_frames()` thread reads frames into shared memory buffers\n- Motion detector identifies regions of interest\n\n### 2. Object Detection\n- Frame ID placed in detection_queue for processing\n- `DetectorRunner` (object_detection/base.py) picks up frame from queue\n- Loads frame from shared memory, runs ONNX/TensorFlow inference\n- Writes detection results to output shared memory\n\n### 3. Object Tracking & Zone Detection\n- Norfair tracker receives detections and creates/updates `TrackedObject` instances\n- TrackedObject checks if object centroid is in configured zones (tracked_object.py)\n- When person enters zone, `EventUpdatePublisher` sends object event\n\n### 4. Event Creation\n- `TrackedObjectProcessor` (track/object_processing.py) receives event\n- EventProcessor creates Event record in database with label, zone, camera, timestamps\n- Best snapshot selected using `is_better_thumbnail()` comparing area, region, zone coverage\n\n### 5. Timeline Recording\n- `TimelineProcessor` receives event and creates Timeline entries\n- Records state changes: \"zone entry\" and \"object visible\" states\n- Entries cached until event saved to database\n\n### 6. Recording Retention Decision\n- `RecordingMaintainer` (record/maintainer.py) checks retention policy\n- Retention modes: \"all\" (always), \"motion\" (if motion detected), or \"objects\" (if tracked objects present)\n- If event exists for timeframe: segment marked for retention\n- Segment moved from /tmp/cache to /media/recordings\n- Updates Recordings table with metadata\n\n### 7. Embedding Generation\n- `EmbeddingProcess` detects new event without embedding\n- Loads thumbnail image from /media/clips/thumbs/{event_id}.jpg\n- Generates image embedding using ONNX model (Jina CLIP)\n- Stores embedding vector in SQLite-vec database\n\n### 8. Semantic Search Ready\n- Event now queryable via API with semantic search capabilities\n- Vector similarity search enabled on embedding column\n\n## Decision Points\n\n### Retention Decision:\n- **Retain**: If retention mode matches (all/motion/objects) OR event exists\n- **Delete**: If no events during segment AND retention policy not met AND storage space low\n\n### Snapshot Quality:\n- Best snapshot selected by comparing area, region coverage, zone presence\n- Updates throughout event lifecycle as better frames captured"
+    },
+    {
+      "id": 2,
+      "difficulty": "Expert",
+      "category": "Inter-Process Communication",
+      "question": "Frigate uses multiple inter-process communication mechanisms. Explain how configuration updates propagate from the API to running camera processes, how frame data is passed from camera capture to object detection, and how detection results flow back to the tracker. What are the performance trade-offs of each mechanism?",
+      "requiredFiles": [
+        "frigate/app.py",
+        "frigate/comms/config_updater.py",
+        "frigate/comms/dispatcher.py",
+        "frigate/comms/zmq_proxy.py",
+        "frigate/video.py",
+        "frigate/object_detection/base.py"
+      ],
+      "keywords": [
+        "ZMQ",
+        "pub/sub",
+        "shared memory",
+        "multiprocessing.Queue",
+        "CameraConfigUpdatePublisher",
+        "SharedMemoryFrameManager",
+        "zero-copy",
+        "detection_queue",
+        "ObjectDetectorPublisher",
+        "Dispatcher"
+      ],
+      "answer": "## Multi-Process Communication Architecture\n\n### 1. Configuration Updates (ZMQ Pub/Sub)\n\n**Flow:**\n- API receives config change request and validates\n- Config saved to YAML file\n- `CameraConfigUpdatePublisher` (comms/config_updater.py) publishes update via ZMQ\n- Each camera process has ZMQ subscriber thread monitoring for config changes\n- Processes receive updates and apply changes dynamically\n\n**Trade-off:** Loose coupling and scalable, but no acknowledgment of receipt\n\n### 2. Frame Data (Shared Memory + Queue)\n\n**Flow:**\n- `capture_frames()` thread writes raw frame data to shared memory buffers\n- Managed by SharedMemoryFrameManager in video.py\n- Frame metadata (ID, timestamp) placed in `detection_queue` (multiprocessing.Queue)\n- `DetectorRunner` reads queue, uses frame ID to load data from shared memory\n\n**Trade-off:** Zero-copy for large frame data (high performance), but requires careful memory management and synchronization\n\n### 3. Detection Results (Shared Memory Output)\n\n**Flow:**\n- DetectorRunner writes detection results (bounding boxes, scores, labels) to output shared memory\n- `ObjectDetectorPublisher` notifies subscribers via ZMQ that results are ready\n- Camera process reads detection results from shared memory using frame ID\n\n**Trade-off:** Fast, low-latency, but limited to single-machine architecture\n\n### 4. Event Updates (Dispatcher + Multiple Channels)\n\n**Flow:**\n- `EventUpdatePublisher` sends object start/update/end events\n- `Dispatcher` (comms/dispatcher.py) routes to multiple communicators\n- Each communicator (MQTT, WebSocket, WebPush) subscribes to specific event types\n\n**Trade-off:** Flexible routing to multiple destinations, but adds complexity\n\n## Performance Considerations\n\n- **Shared Memory:** Avoids serialization overhead for large frame data (4K frames)\n- **ZMQ:** Provides low-latency pub/sub for coordination messages\n- **multiprocessing.Queue:** Used for small metadata (frame IDs) only\n- **Separate Queues:** Detection queue per camera prevents blocking\n- **No Serialization:** Frame data never serialized, only memory pointers shared"
+    },
+    {
+      "id": 3,
+      "difficulty": "Advanced",
+      "category": "PTZ Camera Integration",
+      "question": "Describe how PTZ autotracking works in Frigate, from object detection through to sending ONVIF camera control commands. What criteria determine if an object should be tracked? How does the system handle multiple objects in the frame, and what happens when the tracked object leaves the frame or becomes stationary?",
+      "requiredFiles": [
+        "frigate/ptz/autotrack.py",
+        "frigate/ptz/onvif.py",
+        "frigate/track/tracked_object.py",
+        "frigate/track/object_processing.py",
+        "frigate/camera/state.py",
+        "frigate/config/camera/ptz.py"
+      ],
+      "keywords": [
+        "PtzAutoTrackerThread",
+        "OnvifController",
+        "TrackedObject",
+        "ONVIF",
+        "RelativeMoveRequest",
+        "pan/tilt/zoom",
+        "movement_threshold",
+        "movement_timeout",
+        "stationary detection",
+        "priority tracking"
+      ],
+      "answer": "## PTZ Autotracking Workflow\n\n### 1. Object Detection & Eligibility\n\n**Eligibility Criteria (autotrack.py):**\n- Object label matches configured `track` list in PTZ config\n- Object score exceeds minimum threshold\n- Object in required zone (if zone tracking enabled)\n- Object movement detected (not stationary)\n\n### 2. Object Selection (Multiple Objects)\n\n**Priority System:**\n- Prioritize by configured label order (e.g., person > car > dog)\n- Use largest object by area\n- Prefer object closest to center of frame\n- Only one object tracked at a time per PTZ camera\n- If higher priority object appears, switch tracking immediately\n\n### 3. Tracking Assignment\n\n- `PtzAutoTrackerThread` receives tracking update with object coordinates\n- Calculates object position relative to frame center\n- Determines required pan/tilt adjustment\n- Applies movement threshold to avoid jitter\n- Calculates zoom level based on object size\n\n### 4. ONVIF Command Execution\n\n- `OnvifController` (onvif.py) sends RelativeMoveRequest\n- Pan/tilt/zoom values calculated from object position\n- Commands sent to PTZ camera via ONVIF protocol\n- Continuous tracking: updated pan/tilt commands each frame\n\n### 5. Tracking Stop Conditions\n\n**Stops When:**\n- Object leaves frame boundaries\n- Object becomes stationary (velocity below threshold for configured timeout)\n- Object score drops below minimum\n- Object label changes to non-tracked type\n- Higher priority object appears\n\n**Return to Preset:** Camera moves back to configured preset position or home\n\n### 6. Stationary Object Handling\n\n- Tracked object velocity monitored continuously\n- If velocity below threshold for `movement_timeout` seconds: tracking stops\n- Prevents camera from continuously tracking static objects\n- Allows camera to return to preset and scan for new objects\n\n## Configuration Parameters\n\n```yaml\nptz:\n  track:\n    - person\n    - car\n  required_zones:\n    - driveway\n  movement_threshold: 50  # pixels\n  movement_timeout: 10  # seconds\n  zoom_factor: 0.8\n```\n\n## Multiple Object Example\n\nFrame contains: person (priority 1), car (priority 2), dog (priority 3)\n- System tracks person (highest priority)\n- Car and dog ignored while person tracked\n- If person leaves frame, switches to car\n- If new person appears, immediately switches back"
+    },
+    {
+      "id": 4,
+      "difficulty": "Moderate-Advanced",
+      "category": "Review & Alert System",
+      "question": "Explain the difference between Events and Review Segments in Frigate. How does the ReviewSegmentMaintainer decide when to create a review segment? What's the relationship between motion detection, object detection, and the different review types (alert vs. detection)?",
+      "requiredFiles": [
+        "frigate/review/maintainer.py",
+        "frigate/events/maintainer.py",
+        "frigate/models.py",
+        "frigate/config/camera/review.py",
+        "frigate/api/review.py"
+      ],
+      "keywords": [
+        "ReviewSegment",
+        "Event",
+        "ReviewSegmentMaintainer",
+        "severity",
+        "alert",
+        "detection",
+        "required_zones",
+        "motion detection",
+        "review interval",
+        "deduplication"
+      ],
+      "answer": "## Events vs Review Segments\n\n### Events\n- Individual object detections with start/end times, snapshots, and clips\n- Created for each tracked object that meets criteria\n- Criteria: label match, zone entry, confidence threshold\n- Fine-grained tracking of specific objects\n\n### Review Segments\n- Time-based segments (typically 15-60 seconds) that aggregate interesting activity\n- Designed for users to scrub through footage efficiently\n- Groups multiple events or motion into reviewable chunks\n- Two severity levels: alert and detection\n\n## ReviewSegmentMaintainer Logic\n\n### 1. Alert Criteria (camera.review.alerts)\n\n**Creates alert-level ReviewSegment when:**\n- Required zones present in config\n- Object detected AND entered required zone\n- Object label in alert labels list\n- Confidence score above threshold\n- Severity set to \"alert\"\n\n### 2. Detection Criteria (camera.review.detections)\n\n**Creates detection-level ReviewSegment when:**\n- Object detected but not in required zone OR label not in alert list\n- Motion detected with significant area coverage\n- Severity set to \"detection\"\n\n### 3. Segment Creation Process\n\n- ReviewSegmentMaintainer monitors camera activity every review interval (e.g., 15 seconds)\n- Checks recent Events and motion data from last interval\n- Evaluates criteria for alert vs. detection\n- Creates ReviewSegment record with:\n  - Start/end timestamps\n  - Severity (alert/detection)\n  - Dominant object label\n  - Thumbnail image from best frame\n  - Data field containing metadata (object counts, zones)\n\n### 4. Motion vs. Object Detection Relationship\n\n- **Motion Only:** Can create ReviewSegment if motion-only config enabled\n- **Object Detection:** Higher priority given to segments with object detections\n- **Alert Level:** Requires both object detection AND zone criteria\n- **Motion Triggers Detection:** Motion identifies regions to run object detection\n\n### 5. Deduplication\n\n- Overlapping ReviewSegments merged\n- If multiple events in same timeframe, most severe takes precedence\n- Thumbnail selected from highest confidence detection\n\n## Configuration Example\n\n```yaml\nreview:\n  alerts:\n    required_zones:\n      - front_door\n    labels:\n      - person\n  detections:\n    labels:\n      - car\n      - dog\n```\n\n## Use Case Example\n\n**Scenario:** Person walks by front door\n\n1. Motion detected in front_door zone\n2. Object detection runs, identifies \"person\"\n3. Person in required zone + alert label → Alert ReviewSegment created\n4. Timeline shows 30-second segment with \"alert\" severity\n5. User can quickly review all alerts without scanning hours of footage"
+    },
+    {
+      "id": 5,
+      "difficulty": "Advanced",
+      "category": "Storage & Retention Policies",
+      "question": "Trace the complete lifecycle of a recording segment from initial cache write through to eventual deletion. How does the StorageMaintainer calculate available space and decide which recordings to delete? How do retention policies interact with events, and what happens when a recording contains both event and non-event footage?",
+      "requiredFiles": [
+        "frigate/record/record.py",
+        "frigate/record/maintainer.py",
+        "frigate/record/cleanup.py",
+        "frigate/storage.py",
+        "frigate/config/camera/record.py",
+        "frigate/models.py"
+      ],
+      "keywords": [
+        "RecordProcess",
+        "RecordingMaintainer",
+        "StorageMaintainer",
+        "retention policy",
+        "cache",
+        "permanent storage",
+        "retention modes",
+        "cleanup",
+        "bandwidth calculation",
+        "Recordings table"
+      ],
+      "answer": "## Recording Segment Lifecycle\n\n### 1. Initial Cache Write (RecordProcess)\n\n- FFmpeg writes continuous segments to `/tmp/cache/{camera}/[timestamp].mp4`\n- Segment duration configured (typically 10-60 seconds)\n- Multiple cameras write concurrently to cache\n\n### 2. Segment Completion Detection (RecordingMaintainer)\n\n- Monitors cache directory for complete segments\n- Complete segment identified by: file not growing, duration reached, or next segment started\n- Extracts metadata: start_time, end_time, duration, file size\n\n### 3. Retention Policy Check\n\n**Three Retention Modes:**\n- **\"all\"**: Keep all footage regardless of events\n- **\"motion\"**: Keep segments with motion detection\n- **\"objects\"**: Keep only segments with detected objects\n\n**Event Association:**\n- Check if any Events overlap with segment timeframe\n- Check if motion detected during segment\n- Check if objects tracked during segment\n- If retention criteria met OR events exist: mark segment for permanent storage\n\n### 4. Move to Permanent Storage\n\n**If Retained:**\n- Move from `/tmp/cache` to `/media/frigate/recordings/{camera}/YYYY-MM-DD/HH/`\n- Update Recordings table with metadata:\n  - path, start_time, end_time, duration\n  - motion area percentage\n  - objects count per label\n  - event_id reference (if applicable)\n\n**If Not Retained:**\n- Delete from cache immediately\n\n### 5. Storage Space Calculation (StorageMaintainer)\n\n**Runs Periodically (every 10 seconds):**\n- Calculates total disk space available on /media\n- Current usage by recordings directory\n- Bandwidth usage per camera (bytes/hour)\n- Projected storage needs based on retention config\n\n**Formula:**\n```python\nestimated_days_retention = available_space / (cameras * bytes_per_hour * 24)\n```\n\n### 6. Cleanup Decision (record/cleanup.py)\n\n**Triggered When:** Available space drops below threshold (e.g., < 10% free)\n\n**Prioritized Deletion Order:**\n1. Recordings with no associated events (oldest first)\n2. Recordings outside retention period\n3. Detection-only recordings (if alert recordings exist)\n4. Oldest recordings regardless of events (emergency mode if critically low on space)\n\n### 7. Mixed Content Segment Handling\n\n**Example:** 60-second segment has event from 0:20-0:30\n\n- **Entire segment retained** if any portion has event\n- Recordings table stores event_id for association\n- API can query specific timeframe within segment\n- Clip generation extracts only event portion\n- Full segment kept for context (before/after event)\n\n### 8. Retention Period Enforcement\n\n**Configuration:**\n```yaml\nrecord:\n  enabled: true\n  retain:\n    days: 7  # Keep 7 days of footage\n    mode: objects  # Only keep segments with objects\n  events:\n    retain:\n      default: 30  # Keep events for 30 days\n      mode: active_objects\n```\n\n## Critical Scenarios\n\n**Low Space + All Events:**\n- System enters emergency cleanup\n- Removes oldest events first\n- Warns user if insufficient space\n\n**Cache Full:**\n- Recording process stops\n- Alerts user\n- Prevents FFmpeg from hanging\n\n**Retention Mode Change:**\n- Existing segments not retroactively deleted\n- Only affects new segments"
+    },
+    {
+      "id": 6,
+      "difficulty": "Expert",
+      "category": "Semantic Search & Embeddings",
+      "question": "How does Frigate implement semantic search for event images? Describe the embedding generation process, the vector database storage, how custom embeddings (triggers) work, and how similarity search is performed when a user submits a text query.",
+      "requiredFiles": [
+        "frigate/embeddings/embeddings.py",
+        "frigate/embeddings/maintainer.py",
+        "frigate/embeddings/onnx/text_embeddings.py",
+        "frigate/models.py",
+        "frigate/api/event.py",
+        "frigate/config/classification.py"
+      ],
+      "keywords": [
+        "EmbeddingProcess",
+        "ONNX",
+        "Jina CLIP",
+        "SQLite-vec",
+        "vector similarity",
+        "cosine distance",
+        "TextEmbedding",
+        "Trigger",
+        "multi-modal search",
+        "embedding vector"
+      ],
+      "answer": "## Semantic Search Implementation\n\n### 1. Initialization (embeddings.py)\n\n- `EmbeddingProcess` starts as separate process\n- Loads ONNX models for embedding generation (e.g., Jina CLIP)\n- Models support both image and text embeddings in same vector space\n- Embedding dimension typically 512 or 768 floats\n\n### 2. Event Image Embedding (embeddings/maintainer.py)\n\n**Process:**\n- `EmbeddingsMaintainer` monitors for new Events without embeddings\n- Queries Events table: `SELECT * FROM Event WHERE embedding IS NULL`\n- Loads thumbnail image from `/media/clips/thumbs/{event_id}.jpg`\n- Preprocesses image: resize, normalize, convert to tensor\n- Runs ONNX inference to generate embedding vector\n- Updates Event record with embedding BLOB\n\n### 3. Vector Database Storage (models.py)\n\n**SQLite with sqlite-vec Extension:**\n- Event table has `embedding` column (BLOB type)\n- SQLite-vec provides vector similarity functions:\n  - `vec_distance_cosine(embedding1, embedding2)`: Cosine similarity\n  - Vector index created on embedding column for fast search\n\n### 4. Custom Embeddings (Triggers)\n\n**Trigger Creation:**\n- User creates trigger with description (e.g., \"person wearing red shirt\")\n- Text processed through text embedding model (embeddings/onnx/text_embeddings.py)\n- TextEmbedding generates vector from text description\n- Stored in Triggers table with embedding vector\n- Used for automatic alerts when similar events detected\n\n### 5. Text Query Similarity Search\n\n**Flow:**\n```python\n# User submits query: \"dog playing in yard\"\n1. TextEmbedding.embed(query_text) → query_vector\n2. SQL query:\n   SELECT event_id, \n          vec_distance_cosine(embedding, query_vector) as similarity\n   FROM Event\n   WHERE embedding IS NOT NULL\n   ORDER BY similarity ASC\n   LIMIT 50\n3. Return events with lowest distance (highest similarity)\n```\n\n### 6. Trigger-Based Alerts\n\n**Automatic Matching:**\n```python\n# New event created\n1. Event embedding generated\n2. Query all active Triggers\n3. For each trigger:\n   distance = vec_distance_cosine(event.embedding, trigger.embedding)\n   if distance < trigger.threshold:\n       send_alert(event, trigger)\n```\n\n### 7. Semantic Search API\n\n**Endpoint:**\n```json\nPOST /api/events/search\nBody: {\n  \"query\": \"person with bicycle\",\n  \"cameras\": [\"front_yard\"],\n  \"limit\": 20,\n  \"threshold\": 0.7\n}\n```\n\n### 8. Multi-Modal Search\n\n- Same embedding space for images and text (CLIP model advantage)\n- Can search images with text queries\n- Can search text triggers with image submissions\n- Enables cross-modal similarity matching\n\n### 9. Performance Optimizations\n\n- Embeddings generated asynchronously (doesn't block event creation)\n- SQLite-vec index enables fast nearest-neighbor search\n- Batch embedding generation for multiple events\n- Caching of trigger embeddings (reused for each new event)\n\n## Use Cases\n\n- \"Find all events with person wearing blue jacket\"\n- \"Show me cars parked in driveway\"\n- \"Alert me when package is at front door\"\n- \"Find similar events to this one\" (image-based search)\n\n## Configuration\n\n```yaml\nsemantic_search:\n  enabled: true\n  model:\n    type: jina\n    model_name: jina-clip-v1\n    embedding_dim: 512\n```"
+    },
+    {
+      "id": 7,
+      "difficulty": "Moderate-Advanced",
+      "category": "Authentication & Authorization",
+      "question": "Frigate implements a comprehensive auth system for the web UI and API. Explain how authentication works, including JWT token generation and validation, refresh tokens, and how authorization is enforced for different user roles. What security measures are in place to prevent unauthorized access?",
+      "requiredFiles": [
+        "frigate/api/auth.py",
+        "frigate/api/fastapi_app.py",
+        "frigate/models.py",
+        "frigate/config/config.py",
+        "frigate/api/app.py"
+      ],
+      "keywords": [
+        "JWT",
+        "authentication",
+        "authorization",
+        "refresh token",
+        "bcrypt",
+        "roles",
+        "admin",
+        "editor",
+        "viewer",
+        "middleware",
+        "CORS",
+        "rate limiting"
+      ],
+      "answer": "## Authentication & Authorization System\n\n### 1. User Login (api/auth.py)\n\n**Flow:**\n```python\nPOST /api/login\nBody: {\"username\": \"admin\", \"password\": \"password\"}\n\nProcess:\n- Lookup user in User table by username\n- Verify password hash using bcrypt\n- Generate access token (JWT) with short expiry (15 min)\n- Generate refresh token with long expiry (7 days)\n- Store refresh token hash in database\n- Return both tokens to client\n```\n\n### 2. JWT Token Structure\n\n```json\n{\n  \"sub\": \"user_id\",\n  \"username\": \"admin\",\n  \"role\": \"admin\",\n  \"exp\": 1709567890,\n  \"iat\": 1709567000\n}\n```\n\n### 3. Token Validation Middleware (fastapi_app.py)\n\n```python\n@app.middleware(\"http\")\nasync def auth_middleware(request, call_next):\n    # Extract token from Authorization header\n    token = extract_bearer_token(request.headers.get(\"Authorization\"))\n    \n    # Skip auth for public endpoints\n    if request.url.path in PUBLIC_PATHS:\n        return await call_next(request)\n    \n    # Validate JWT signature and expiry\n    try:\n        payload = jwt.decode(token, SECRET_KEY, algorithms=[\"HS256\"])\n        request.state.user = payload\n    except JWTError:\n        return JSONResponse({\"error\": \"Invalid token\"}, status_code=401)\n    \n    return await call_next(request)\n```\n\n### 4. Authorization by Role\n\n**Roles:**\n- **admin**: Full access (create/update/delete events, config changes, user management)\n- **editor**: Create and update, no delete or config changes\n- **viewer**: Read-only access\n\n**Enforcement:**\n```python\n@app.delete(\"/api/events/{event_id}\")\nasync def delete_event(event_id: str, user: User = Depends(require_admin)):\n    # Only admins can delete events\n    ...\n\ndef require_admin(request: Request):\n    if request.state.user[\"role\"] != \"admin\":\n        raise HTTPException(status_code=403, detail=\"Admin access required\")\n    return request.state.user\n```\n\n### 5. Refresh Token Flow\n\n```python\nPOST /api/refresh\nBody: {\"refresh_token\": \"...\"}\n\nProcess:\n- Lookup refresh token hash in User table\n- Verify token not expired or revoked\n- Generate new access token\n- Optionally rotate refresh token\n- Return new tokens\n```\n\n### 6. Security Measures\n\n**A. Password Security:**\n- Passwords hashed with bcrypt (slow, resistant to brute force)\n- Minimum password length enforced\n- No password stored in plaintext\n\n**B. Token Security:**\n- JWT signed with HS256 and secret key\n- Access tokens short-lived (15 min) to limit exposure\n- Refresh tokens stored as hash in database (not plaintext)\n- Token revocation via database flag\n\n**C. CORS Protection:**\n- Configured allowed origins in config\n- Credentials required for cross-origin requests\n- Preflight requests validated\n\n**D. Rate Limiting:**\n- Login endpoint rate limited (prevent brute force)\n- API endpoints rate limited per IP\n\n**E. CSRF Protection:**\n- Tokens transmitted via Authorization header (not cookies)\n- Prevents CSRF attacks\n\n**F. HTTPS Enforcement:**\n- Config option to require HTTPS\n- Secure flag on cookies if HTTPS enabled\n\n### 7. Protected API Endpoints\n\n**Public (no auth):**\n- GET /api/stats\n- GET /api/version\n\n**Viewer (read-only):**\n- GET /api/events\n- GET /api/recordings\n\n**Editor (read/write):**\n- POST /api/events/{event_id}/retain\n- POST /api/events/{event_id}/plus\n\n**Admin (full access):**\n- PUT /api/config\n- POST /api/restart\n- DELETE /api/events/{event_id}\n- POST /api/users\n\n### 8. Configuration Example\n\n```yaml\nauth:\n  enabled: true\n  secret_key: \"random-secret-here\"\n  access_token_expire_minutes: 15\n  refresh_token_expire_days: 7\n  require_https: true\n  failed_login_timeout: 30\n```"
+    },
+    {
+      "id": 8,
+      "difficulty": "Expert",
+      "category": "Detection Pipeline Optimization",
+      "question": "Frigate uses multiple techniques to optimize object detection performance. Explain the motion detection → region selection → detection pipeline, how frame rates are managed (detect_fps, capture_fps), how shared memory prevents unnecessary copies, and how multiple cameras share detector resources.",
+      "requiredFiles": [
+        "frigate/video.py",
+        "frigate/motion/improved_motion.py",
+        "frigate/object_detection/base.py",
+        "frigate/detectors/detection_runners.py",
+        "frigate/util/image.py",
+        "frigate/config/camera/detect.py"
+      ],
+      "keywords": [
+        "detect_fps",
+        "capture_fps",
+        "motion detection",
+        "region selection",
+        "SharedMemoryFrameManager",
+        "zero-copy",
+        "detector pool",
+        "AsyncDetectorRunner",
+        "background subtraction",
+        "detection skipping",
+        "load balancing"
+      ],
+      "answer": "## Detection Pipeline Optimization\n\n### 1. Frame Rate Management\n\n**A. Capture FPS:**\n- FFmpeg captures at `camera.capture_fps` (e.g., 30 fps)\n- All frames stored in circular buffer in shared memory\n- Used for smooth live view and recording\n\n**B. Detect FPS:**\n- Object detection runs at `camera.detect.fps` (e.g., 5 fps)\n- Significantly lower than capture FPS to reduce compute\n- Only every Nth frame sent to object detection\n- Example: 30 capture FPS, 5 detect FPS = detect every 6th frame\n\n```python\nif frame_number % detect_interval == 0:\n    detection_queue.put(frame_id)\n```\n\n### 2. Motion Detection → Region Selection\n\n**A. Motion Detection (motion/improved_motion.py):**\n- Background subtraction on every frame at capture FPS\n- Generates binary mask of motion regions\n- Much faster than object detection (pure OpenCV)\n- Divides frame into grid (e.g., 32x32 regions)\n- Tracks motion percentage per grid cell\n\n**B. Region Selection:**\n- Identify bounding box around motion area\n- Expand region by configured margin (prevent edge clipping)\n- Consolidate overlapping regions\n- If motion covers > threshold (e.g., 30% of frame): detect full frame\n- If motion < threshold: detect only motion regions\n- **Skip detection entirely if no motion** (huge savings)\n\n**C. Detection Skipping:**\n```python\nif no_motion and not stationary_objects:\n    skip_detection()  # Don't queue frame for detection\nelif small_motion_regions:\n    detect_regions(motion_boxes)  # Detect only motion areas\nelse:\n    detect_full_frame()  # Large motion, detect entire frame\n```\n\n### 3. Shared Memory Architecture\n\n**A. Zero-Copy Frame Access:**\n```python\n# Write frame (video.py)\nshared_memory_manager.write_frame(frame_id, frame_data)\ndetection_queue.put(frame_id)  # Only metadata queued\n\n# Read frame (object_detection/base.py)\nframe_id = detection_queue.get()\nframe_data = shared_memory_manager.read_frame(frame_id)\n# No copy, direct memory access\n```\n\n**B. Circular Buffer:**\n- Fixed-size shared memory buffer (e.g., 20 frames)\n- Oldest frames overwritten when buffer full\n- Ensures memory doesn't grow unbounded\n- Frame reference counting prevents overwrite of in-use frames\n\n### 4. Multi-Camera Detector Sharing\n\n**A. Detector Pool (app.py):**\n- Configure N detector processes (e.g., 2 detectors)\n- Each detector has dedicated hardware (e.g., GPU 0, GPU 1, or CPU)\n- All cameras share detector pool via single detection_queue\n\n**B. Load Balancing:**\n```python\n# Round-robin assignment\ndetector_assignment:\n  camera1 → detector0\n  camera2 → detector1\n  camera3 → detector0\n  camera4 → detector1\n```\n\n**C. Async Detection (AsyncDetectorRunner):**\n- While detector processes frame, can queue next frame\n- Pipelined execution: load frame, preprocess, infer, postprocess\n- Multiple in-flight frames per detector\n\n### 5. Detection Optimization Strategies\n\n**A. Model Selection:**\n- Faster models for high detect FPS (e.g., YOLOv7-tiny)\n- Accurate models for low detect FPS (e.g., YOLOv8m)\n- Resolution trade-off: 320x320 vs 640x640\n\n**B. Input Resolution Scaling:**\n- Configure detection input size (e.g., 640x640)\n- Downscale high-res cameras (4K → 640x640 for detection)\n- Preserve full resolution for recording\n\n**C. Hardware Acceleration:**\n- GPU/TPU via TensorRT, OpenVINO, EdgeTPU\n- Parallelism: multiple detectors on different hardware\n- CPU fallback if no accelerator available\n\n**D. Region Cropping:**\n- Only pass motion region to detector (not full frame)\n- Smaller input = faster inference\n- Resize cropped region to model input size\n\n### 6. Performance Metrics\n\n```json\n{\n  \"camera1\": {\n    \"camera_fps\": 30.1,\n    \"detection_fps\": 5.0,\n    \"process_fps\": 30.0,\n    \"skipped_fps\": 0.2,\n    \"detection_time\": 0.12,\n    \"motion_regions\": 2\n  }\n}\n```\n\n### Key Performance Gains\n\n- Motion-based detection skipping: **70-90% reduction** in detection calls\n- Shared memory: Eliminates frame copy overhead (50-100ms saved per frame on 4K)\n- Detector sharing: N cameras with 1 detector vs N detectors (N-1 GPU/TPU savings)\n- Lower detect FPS: **80% compute reduction** (30 FPS → 5 FPS)"
+    },
+    {
+      "id": 9,
+      "difficulty": "Advanced",
+      "category": "Notification Dispatching",
+      "question": "How does Frigate's event dispatching system work? Trace an event from creation through to notification delivery via MQTT, WebSocket, and WebPush. How does the system ensure different consumers receive relevant events without tight coupling? What happens when a communicator is unavailable?",
+      "requiredFiles": [
+        "frigate/comms/dispatcher.py",
+        "frigate/comms/mqtt.py",
+        "frigate/comms/ws.py",
+        "frigate/comms/webpush.py",
+        "frigate/events/maintainer.py",
+        "frigate/config/config.py"
+      ],
+      "keywords": [
+        "Dispatcher",
+        "publisher/subscriber",
+        "EventUpdatePublisher",
+        "MqttClient",
+        "WebSocket",
+        "WebPush",
+        "loose coupling",
+        "failure handling",
+        "MQTT topics",
+        "broadcast"
+      ],
+      "answer": "## Event Dispatching Architecture\n\n### 1. Event Creation and Publishing (events/maintainer.py)\n\n```python\n# TrackedObjectProcessor creates event\nevent = Event.create(\n    label=\"person\",\n    camera=\"front_door\",\n    start_time=timestamp,\n    ...\n)\n\n# Publish to dispatcher\nEventUpdatePublisher.send({\n    \"type\": \"event_update\",\n    \"before\": None,\n    \"after\": event.dict(),\n})\n```\n\n### 2. Central Dispatcher (comms/dispatcher.py)\n\n**Publisher/Subscriber Pattern:**\n```python\nclass Dispatcher:\n    def __init__(self):\n        self.subscribers = {\n            \"event_update\": [],\n            \"detection_update\": [],\n            \"recording_update\": [],\n            \"stats_update\": [],\n        }\n    \n    def subscribe(self, event_type, handler):\n        self.subscribers[event_type].append(handler)\n    \n    def publish(self, event_type, payload):\n        for handler in self.subscribers[event_type]:\n            try:\n                handler(payload)\n            except Exception as e:\n                logger.error(f\"Handler failed: {e}\")\n                # Continue to other handlers\n```\n\n**Loose Coupling Benefits:**\n- Publishers don't know about subscribers\n- Subscribers don't know about each other\n- Easy to add/remove communicators without code changes\n\n### 3. MQTT Communicator (comms/mqtt.py)\n\n**Subscription:**\n```python\nclass MqttClient:\n    def start(self):\n        dispatcher.subscribe(\"event_update\", self.on_event_update)\n        dispatcher.subscribe(\"detection_update\", self.on_detection_update)\n    \n    def on_event_update(self, payload):\n        event = payload[\"after\"]\n        \n        # Publish to MQTT topics\n        self.publish(\n            f\"frigate/{event['camera']}/person\",\n            json.dumps(event),\n            retain=True\n        )\n        \n        self.publish(\n            f\"frigate/events\",\n            json.dumps(event),\n            retain=False\n        )\n```\n\n**MQTT Topics:**\n- `frigate/available` → \"online\" (birth message)\n- `frigate/<camera>/<label>` → event data\n- `frigate/events` → all events\n- `frigate/stats` → system stats\n- `frigate/reviews` → review segments\n\n### 4. WebSocket Communicator (comms/ws.py)\n\n**Connection Management:**\n```python\nclass WebSocketManager:\n    def __init__(self):\n        self.connections = set()\n        dispatcher.subscribe(\"event_update\", self.broadcast_event)\n    \n    async def connect(self, websocket):\n        self.connections.add(websocket)\n    \n    async def disconnect(self, websocket):\n        self.connections.remove(websocket)\n    \n    async def broadcast_event(self, payload):\n        disconnected = set()\n        for ws in self.connections:\n            try:\n                await ws.send_json(payload)\n            except Exception:\n                disconnected.add(ws)\n        \n        # Remove disconnected clients\n        self.connections -= disconnected\n```\n\n**Filtering:**\n- Clients can subscribe to specific cameras or labels\n- Server filters events before sending\n- Reduces bandwidth for web UI\n\n### 5. WebPush Communicator (comms/webpush.py)\n\n**Browser Notification Flow:**\n```python\nclass WebPushClient:\n    def on_event_update(self, payload):\n        event = payload[\"after\"]\n        \n        # Check notification criteria\n        if not self.should_notify(event):\n            return\n        \n        # Get user subscriptions from DB\n        subscriptions = User.select().where(\n            User.notifications_enabled == True\n        )\n        \n        for user in subscriptions:\n            self.send_push(\n                user.push_subscription,\n                title=f\"{event['label']} detected\",\n                body=f\"Camera: {event['camera']}\",\n                icon=f\"/api/events/{event['id']}/thumbnail.jpg\",\n                data={\"event_id\": event[\"id\"]}\n            )\n```\n\n**Notification Criteria:**\n- Only send for alert-level events (not all detections)\n- User-configurable filters (cameras, labels, zones)\n- Rate limiting (max N notifications per hour)\n- Quiet hours support\n\n### 6. Failure Handling\n\n**A. Communicator Unavailable:**\n```python\ndef publish(self, event_type, payload):\n    for handler in self.subscribers[event_type]:\n        try:\n            handler(payload)\n        except Exception as e:\n            logger.error(f\"Handler {handler.__name__} failed: {e}\")\n            # Continue to next handler - don't stop dispatch\n```\n\n**B. MQTT Connection Lost:**\n- Automatic reconnection with exponential backoff\n- Birth/will messages indicate online/offline status\n- Queued messages discarded (no retry) - only latest state matters\n\n**C. WebSocket Disconnected:**\n- Client connection removed from active set\n- No message queuing (live updates only)\n- Client reconnects and receives latest state\n\n**D. WebPush Failure:**\n- Invalid subscription: remove from database\n- Service worker not registered: skip notification\n- Rate limit exceeded: queue for later\n\n### 7. Event Flow Example\n\n```\n1. TrackedObject generates \"person\" event at front_door\n   ↓\n2. EventUpdatePublisher.send(event_data)\n   ↓\n3. Dispatcher.publish(\"event_update\", event_data)\n   ↓\n4. Parallel dispatch to all subscribers:\n   ├─→ MqttClient.on_event_update()\n   │   └─→ Publish to frigate/front_door/person\n   │   └─→ Publish to frigate/events\n   │\n   ├─→ WebSocketManager.broadcast_event()\n   │   └─→ Send to all connected web clients\n   │   └─→ Filter by client subscriptions\n   │\n   └─→ WebPushClient.on_event_update()\n       └─→ Check notification criteria\n       └─→ Send push to subscribed users\n```\n\n## Key Design Benefits\n\n- **Loose coupling**: Publishers don't know about subscribers\n- **Fault isolation**: One communicator failure doesn't affect others\n- **Scalability**: Easy to add new communicators\n- **Flexibility**: Subscribers can filter events independently\n- **Reliability**: Failed deliveries don't block other subscribers"
+    },
+    {
+      "id": 10,
+      "difficulty": "Advanced",
+      "category": "Runtime Configuration Updates",
+      "question": "Frigate allows runtime configuration updates without full restart. Explain how configuration changes propagate from the API to running processes, what types of changes can be applied dynamically vs requiring restart, and how the system ensures consistency during config updates. Include the role of ZMQ and how camera processes react to config changes.",
+      "requiredFiles": [
+        "frigate/api/app.py",
+        "frigate/config/config.py",
+        "frigate/comms/config_updater.py",
+        "frigate/comms/zmq_proxy.py",
+        "frigate/video.py",
+        "frigate/camera/maintainer.py"
+      ],
+      "keywords": [
+        "runtime configuration",
+        "CameraConfigUpdatePublisher",
+        "ZMQ",
+        "dynamic updates",
+        "restart required",
+        "config validation",
+        "atomic writes",
+        "version tracking",
+        "staged rollout"
+      ],
+      "answer": "## Configuration Update Propagation\n\n### 1. API Config Update Endpoint (api/app.py)\n\n```python\n@app.put(\"/api/config\")\nasync def update_config(config_update: dict, user: User = Depends(require_admin)):\n    # Load current config\n    current_config = FrigateConfig.load()\n    \n    # Merge updates (deep merge)\n    updated_config = deep_merge(current_config, config_update)\n    \n    # Validate entire config\n    try:\n        validated_config = FrigateConfig.parse(updated_config)\n    except ValidationError as e:\n        raise HTTPException(status_code=400, detail=str(e))\n    \n    # Write to config file\n    with open(\"/config/config.yml\", \"w\") as f:\n        yaml.dump(validated_config.dict(), f)\n    \n    # Broadcast update to all processes\n    config_publisher.send({\n        \"type\": \"config_update\",\n        \"config\": validated_config.dict()\n    })\n    \n    return {\"success\": True, \"restart_required\": False}\n```\n\n### 2. Configuration Broadcasting (comms/config_updater.py)\n\n**ZMQ Publisher:**\n```python\nclass CameraConfigUpdatePublisher:\n    def __init__(self, zmq_context):\n        self.socket = zmq_context.socket(zmq.PUB)\n        self.socket.bind(\"ipc:///tmp/frigate_config_updates\")\n    \n    def send(self, update):\n        self.socket.send_json(update)\n```\n\n**ZMQ Subscriber in Each Process:**\n```python\nclass ConfigSubscriber:\n    def __init__(self, zmq_context, callback):\n        self.socket = zmq_context.socket(zmq.SUB)\n        self.socket.connect(\"ipc:///tmp/frigate_config_updates\")\n        self.socket.subscribe(b\"\")  # Subscribe to all messages\n        self.callback = callback\n        \n        # Start listener thread\n        self.thread = threading.Thread(target=self.listen)\n        self.thread.start()\n    \n    def listen(self):\n        while True:\n            update = self.socket.recv_json()\n            self.callback(update)\n```\n\n### 3. Camera Process Config Update (video.py)\n\n```python\nclass CameraTracker:\n    def __init__(self, camera_name, config):\n        self.config = config\n        self.config_subscriber = ConfigSubscriber(\n            zmq_context,\n            callback=self.on_config_update\n        )\n    \n    def on_config_update(self, update):\n        new_config = update[\"config\"]\n        camera_config = new_config[\"cameras\"][self.camera_name]\n        \n        # Determine what changed\n        changes = self.detect_changes(self.config, camera_config)\n        \n        # Apply dynamic changes\n        if \"enabled\" in changes:\n            if camera_config.enabled:\n                self.start_capture()\n            else:\n                self.stop_capture()\n        \n        if \"detect\" in changes:\n            self.update_detection_settings(camera_config.detect)\n        \n        if \"zones\" in changes:\n            self.update_zones(camera_config.zones)\n        \n        # Update local config\n        self.config = camera_config\n```\n\n### 4. Dynamic vs Restart-Required Changes\n\n**A. Dynamic Changes (No Restart):**\n- Camera enabled/disabled\n- Detect FPS\n- Zones\n- Motion threshold\n- Snapshots enabled\n- Recording retention\n- Object filters\n- MQTT settings\n- Notification settings\n\n**B. Restart Required:**\n- FFmpeg input arguments (camera restart)\n- Detector type (detector restart)\n- Hardware acceleration (detector reload)\n- Database location (app restart)\n- Shared memory size (app restart)\n- Port changes (API server restart)\n\n**C. API Response:**\n```json\n{\n  \"success\": true,\n  \"restart_required\": false,\n  \"changes_applied\": {\n    \"dynamic\": [\"camera.front_door.enabled\", \"camera.front_door.detect.fps\"],\n    \"requires_restart\": []\n  }\n}\n```\n\n### 5. Consistency During Updates\n\n**A. Atomic Config Write:**\n```python\n# Write to temp file first\ntemp_config = \"/config/config.yml.tmp\"\nwith open(temp_config, \"w\") as f:\n    yaml.dump(config, f)\n\n# Atomic rename\nos.rename(temp_config, \"/config/config.yml\")\n```\n\n**B. Version Tracking:**\n```python\nclass FrigateConfig:\n    config_version: int = 0\n    \n    @classmethod\n    def load(cls):\n        config = cls.parse_yaml(\"/config/config.yml\")\n        config.config_version += 1\n        return config\n\n# Processes ignore updates with older versions\n```\n\n**C. Staged Rollout:**\n```python\n# Camera processes update one at a time\nfor camera in cameras:\n    camera.update_config(new_config)\n    time.sleep(0.1)  # Brief delay between updates\n    \n# Prevents all cameras from restarting simultaneously\n```\n\n### 6. ZMQ Infrastructure (comms/zmq_proxy.py)\n\n**Proxy Pattern:**\n```\nAPI → Publisher Socket (XPUB)\n         ↓\n      ZMQ Proxy (XSUB ↔ XPUB)\n         ↓\nSubscriber Sockets (SUB) ← Camera Processes\n                          ← Detector Processes\n                          ← Record Process\n                          ← Event Process\n```\n\n**Benefits:**\n- Decouples publisher from subscribers\n- Single publish reaches all subscribers\n- Subscribers can join/leave dynamically\n- No message loss for connected subscribers\n\n### 7. Configuration Update Example\n\nUser changes front_door camera detect FPS from 5 to 10:\n\n```yaml\n# Before\ncameras:\n  front_door:\n    detect:\n      fps: 5\n\n# After\ncameras:\n  front_door:\n    detect:\n      fps: 10\n```\n\n**Propagation:**\n1. API receives PUT /api/config\n2. Validates new config (FPS value valid, camera exists)\n3. Writes to /config/config.yml atomically\n4. CameraConfigUpdatePublisher broadcasts via ZMQ\n5. front_door camera process receives update\n6. Updates detect_interval: `30 fps / 10 detect fps = every 3rd frame`\n7. No FFmpeg restart needed (dynamic change)\n8. API returns success, no restart required\n9. Web UI shows success notification\n\n### Key Design Principles\n\n- **Minimize disruption**: Apply changes dynamically when possible\n- **Validate before apply**: Prevent invalid config from breaking system\n- **Atomic updates**: Config file written atomically to prevent corruption\n- **Graceful degradation**: If process fails to update, continues with old config\n- **Observable**: Status updates via WebSocket for user feedback"
+    }
+  ]
+}
