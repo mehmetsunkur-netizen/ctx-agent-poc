@@ -6,6 +6,11 @@ import { z } from 'zod';
 export type Difficulty = 'Easy' | 'Moderate' | 'Moderate-Advanced' | 'Advanced' | 'Expert';
 
 /**
+ * Agent types for evaluation
+ */
+export type AgentType = 'code-search' | 'codex';
+
+/**
  * Question schema
  */
 export const QuestionSchema = z.object({
@@ -115,12 +120,13 @@ export interface ScorerConfig {
  * Agent configuration
  */
 export interface AgentConfig {
+  type: AgentType;
   llm: {
     model: string;
     apiKey?: string;
   };
-  maxPlanSize: number;
-  maxStepIterations: number;
+  maxPlanSize: number; // Used by code-search only
+  maxStepIterations: number; // Used by code-search only
 }
 
 /**

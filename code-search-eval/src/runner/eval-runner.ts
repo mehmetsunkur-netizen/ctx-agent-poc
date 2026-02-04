@@ -1,4 +1,3 @@
-import { CodeSearchAgent } from '@isara-ctx/code-agent';
 import { LLMProvider } from '@isara-ctx/agent-framework';
 import type {
   EvaluationDataset,
@@ -8,6 +7,7 @@ import type {
   AggregateMetrics,
   EvaluationConfig,
 } from '../types/index.js';
+import type { AgentFactory } from '../adapter/agent-adapter.js';
 import { Scorer } from '../scorer/index.js';
 import chalk from 'chalk';
 
@@ -17,10 +17,12 @@ import chalk from 'chalk';
 export class EvaluationRunner {
   private config: EvaluationConfig;
   private scorer: Scorer;
+  private agentFactory: AgentFactory;
 
-  constructor(config: EvaluationConfig, apiKey: string) {
+  constructor(config: EvaluationConfig, apiKey: string, agentFactory: AgentFactory) {
     this.config = config;
     this.scorer = new Scorer(config.scorer, apiKey);
+    this.agentFactory = agentFactory;
   }
 
   /**
@@ -141,7 +143,7 @@ export class EvaluationRunner {
         console.log(chalk.gray(`  Creating agent...`));
       }
 
-      const agent = await CodeSearchAgent.create({
+      const agent = await this.agentFactory.create({
         path: repoPath,
         llmConfig: {
           provider: LLMProvider.OpenAI,
