@@ -8,7 +8,7 @@ export type Difficulty = 'Easy' | 'Moderate' | 'Moderate-Advanced' | 'Advanced' 
 /**
  * Agent types for evaluation
  */
-export type AgentType = 'code-search' | 'codex';
+export type AgentType = 'code-search' | 'codex' | 'claude';
 
 /**
  * Question schema
