@@ -2,12 +2,15 @@
 
 # Environment variables
 OPENAI_BASE_URL ?= http://127.0.0.1:2141/v1
-OPENAI_API_KEY ?= dummy
+OPENAI_API_KEY ?= dumo
+
+ANTHROPIC_BASE_URL ?= http://127.0.0.1:2141
+ANTHROPIC_AUTH_TOKEN ?= duma
 
 # Default configuration
 DATASET ?= dataset/chromadb-admin-eval.json
 MAX_STEP_ITERATIONS ?= 20
-TIMEOUT ?= 300000
+TIMEOUT ?= 600000
 AGENT_TYPE ?= code-search
 
 # Help target
@@ -20,7 +23,8 @@ help: ## Show this help message
 	@echo "Examples:"
 	@echo "  make eval-code-search         # Run with code-search agent"
 	@echo "  make eval-codex               # Run with Codex CLI"
-	@echo "  make eval-both                # Run both agents sequentially"
+	@echo "  make eval-claude              # Run with Claude CLI"
+	@echo "  make eval-all-agents          # Run all agents sequentially"
 	@echo "  make DATASET=dataset/test.json eval  # Use custom dataset"
 
 .PHONY: eval
@@ -41,8 +45,15 @@ eval-codex: ## Run evaluation with Codex CLI
 	OPENAI_BASE_URL=$(OPENAI_BASE_URL) OPENAI_API_KEY=$(OPENAI_API_KEY) \
 	pnpm dev $(DATASET) --verbose --timeout $(TIMEOUT) --agent-type codex
 
+.PHONY: eval-claude
+eval-claude: ## Run evaluation with Claude CLI
+	@echo "Running evaluation with Claude CLI..."
+	OPENAI_BASE_URL=$(OPENAI_BASE_URL) OPENAI_API_KEY=$(OPENAI_API_KEY) \
+	ANTHROPIC_BASE_URL=$(ANTHROPIC_BASE_URL) ANTHROPIC_AUTH_TOKEN=$(ANTHROPIC_AUTH_TOKEN) \
+	pnpm dev $(DATASET) --verbose --timeout $(TIMEOUT) --config config/claude.json
+
 .PHONY: eval-both
-eval-both: ## Run evaluation with both agents sequentially
+eval-both: ## Run evaluation with both agents sequentially (deprecated: use eval-all-agents)
 	@echo "========================================="
 	@echo "Running evaluation with code-search agent"
 	@echo "========================================="
@@ -54,6 +65,25 @@ eval-both: ## Run evaluation with both agents sequentially
 	@$(MAKE) eval-codex
 	@echo ""
 	@echo "✓ Both evaluations complete. Check ./results/ for outputs."
+
+.PHONY: eval-all-agents
+eval-all-agents: ## Run evaluation with all agents sequentially
+	@echo "========================================="
+	@echo "Running evaluation with code-search agent"
+	@echo "========================================="
+	@$(MAKE) eval-code-search
+	@echo ""
+	@echo "========================================="
+	@echo "Running evaluation with Codex CLI"
+	@echo "========================================="
+	@$(MAKE) eval-codex
+	@echo ""
+	@echo "========================================="
+	@echo "Running evaluation with Claude CLI"
+	@echo "========================================="
+	@$(MAKE) eval-claude
+	@echo ""
+	@echo "✓ All evaluations complete. Check ./results/ for outputs."
 
 # Quick examples with specific datasets
 .PHONY: example-chromadb
@@ -79,6 +109,10 @@ eval-with-config: ## Run evaluation with config file (CONFIG variable)
 .PHONY: example-codex-config
 example-codex-config: ## Example: Run with codex.json config
 	@$(MAKE) eval-with-config CONFIG=config/codex.json DATASET=dataset/chromadb-admin-eval.json
+
+.PHONY: example-claude-config
+example-claude-config: ## Example: Run with claude.json config
+	@$(MAKE) eval-with-config CONFIG=config/claude.json DATASET=dataset/chromadb-admin-eval.json
 
 .PHONY: example-default-config
 example-default-config: ## Example: Run with default.json config
