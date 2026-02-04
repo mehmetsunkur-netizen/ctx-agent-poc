@@ -8,12 +8,81 @@ OPENAI_API_KEY ?= dummy
 DATASET ?= dataset/chromadb-admin-eval.json
 MAX_STEP_ITERATIONS ?= 20
 TIMEOUT ?= 300000
+AGENT_TYPE ?= code-search
 
+# Help target
+.PHONY: help
+help: ## Show this help message
+	@echo "Code Search Evaluation - Available targets:"
+	@echo ""
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "Examples:"
+	@echo "  make eval-code-search         # Run with code-search agent"
+	@echo "  make eval-codex               # Run with Codex CLI"
+	@echo "  make eval-both                # Run both agents sequentially"
+	@echo "  make DATASET=dataset/test.json eval  # Use custom dataset"
 
 .PHONY: eval
-eval: ## Run evaluation with verbose output
+eval: ## Run evaluation with verbose output (default agent: code-search)
 	OPENAI_BASE_URL=$(OPENAI_BASE_URL) OPENAI_API_KEY=$(OPENAI_API_KEY) \
-	pnpm dev $(DATASET) --verbose --max-step-iterations $(MAX_STEP_ITERATIONS) --timeout $(TIMEOUT)
+	pnpm dev $(DATASET) --verbose --max-step-iterations $(MAX_STEP_ITERATIONS) --timeout $(TIMEOUT) --agent-type $(AGENT_TYPE)
+
+# Agent-specific evaluation targets
+.PHONY: eval-code-search
+eval-code-search: ## Run evaluation with code-search agent
+	@echo "Running evaluation with code-search agent..."
+	OPENAI_BASE_URL=$(OPENAI_BASE_URL) OPENAI_API_KEY=$(OPENAI_API_KEY) \
+	pnpm dev $(DATASET) --verbose --max-step-iterations $(MAX_STEP_ITERATIONS) --timeout $(TIMEOUT) --agent-type code-search
+
+.PHONY: eval-codex
+eval-codex: ## Run evaluation with Codex CLI
+	@echo "Running evaluation with Codex CLI..."
+	OPENAI_BASE_URL=$(OPENAI_BASE_URL) OPENAI_API_KEY=$(OPENAI_API_KEY) \
+	pnpm dev $(DATASET) --verbose --timeout $(TIMEOUT) --agent-type codex
+
+.PHONY: eval-both
+eval-both: ## Run evaluation with both agents sequentially
+	@echo "========================================="
+	@echo "Running evaluation with code-search agent"
+	@echo "========================================="
+	@$(MAKE) eval-code-search
+	@echo ""
+	@echo "========================================="
+	@echo "Running evaluation with Codex CLI"
+	@echo "========================================="
+	@$(MAKE) eval-codex
+	@echo ""
+	@echo "✓ Both evaluations complete. Check ./results/ for outputs."
+
+# Quick examples with specific datasets
+.PHONY: example-chromadb
+example-chromadb: ## Example: Evaluate ChromaDB dataset with code-search
+	@$(MAKE) eval-code-search DATASET=dataset/chromadb-admin-eval.json
+
+.PHONY: example-chromadb-codex
+example-chromadb-codex: ## Example: Evaluate ChromaDB dataset with Codex
+	@$(MAKE) eval-codex DATASET=dataset/chromadb-admin-eval.json
+
+.PHONY: example-quick-test
+example-quick-test: ## Example: Quick test with minimal dataset
+	@echo "Running quick test (adjust DATASET if needed)..."
+	@$(MAKE) eval-code-search DATASET=dataset/chromadb-admin-eval.json TIMEOUT=60000
+
+# Configuration examples
+.PHONY: eval-with-config
+eval-with-config: ## Run evaluation with config file (CONFIG variable)
+	@test -n "$(CONFIG)" || (echo "Error: CONFIG variable required. Example: make eval-with-config CONFIG=config/codex.json" && exit 1)
+	OPENAI_BASE_URL=$(OPENAI_BASE_URL) OPENAI_API_KEY=$(OPENAI_API_KEY) \
+	pnpm dev $(DATASET) --verbose --config $(CONFIG)
+
+.PHONY: example-codex-config
+example-codex-config: ## Example: Run with codex.json config
+	@$(MAKE) eval-with-config CONFIG=config/codex.json DATASET=dataset/chromadb-admin-eval.json
+
+.PHONY: example-default-config
+example-default-config: ## Example: Run with default.json config
+	@$(MAKE) eval-with-config CONFIG=config/default.json DATASET=dataset/chromadb-admin-eval.json
 
 # Dataset management
 .PHONY: list-datasets

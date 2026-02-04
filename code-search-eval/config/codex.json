@@ -14,9 +14,9 @@
     }
   },
   "agent": {
-    "type": "code-search",
+    "type": "codex",
     "llm": {
-      "model": "gpt-5.2-2025-12-11"
+      "model": "gpt-5.2-codex"
     },
     "maxPlanSize": 10,
     "maxStepIterations": 5
