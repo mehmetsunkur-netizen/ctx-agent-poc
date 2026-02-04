@@ -13,4 +13,5 @@ onlyBuiltDependencies:
   - sharp
   - tree-sitter
   - tree-sitter-javascript
+  - tree-sitter-python
   - tree-sitter-typescript
