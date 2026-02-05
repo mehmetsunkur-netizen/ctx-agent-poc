@@ -5,6 +5,7 @@ packages:
   - code-search
   - code-search/packages/*
   - code-search-eval
+  - ctx-agent/packages/*
 
 onlyBuiltDependencies:
   - esbuild

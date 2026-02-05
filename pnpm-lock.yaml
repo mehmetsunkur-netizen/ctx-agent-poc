@@ -238,6 +238,68 @@ importers:
         specifier: ^5.3.3
         version: 5.9.3
 
+  ctx-agent/packages/cli:
+    dependencies:
+      '@ctx-agent/ctx-agent':
+        specifier: workspace:*
+        version: link:../ctx-agent
+      dotenv:
+        specifier: ^17.2.3
+        version: 17.2.3
+      ink:
+        specifier: ^5.0.0
+        version: 5.2.1(@types/react@18.3.27)(react@18.3.1)
+      meow:
+        specifier: ^13.0.0
+        version: 13.2.0
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.6
+        version: 20.19.30
+      '@types/react':
+        specifier: ^18.3.1
+        version: 18.3.27
+      tsx:
+        specifier: ^4.7.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+
+  ctx-agent/packages/ctx-agent:
+    dependencies:
+      '@chroma-core/default-embed':
+        specifier: ^0.1.9
+        version: 0.1.9
+      '@chroma-core/openai':
+        specifier: ^0.1.9
+        version: 0.1.9(chromadb@3.2.2)(ws@8.19.0)(zod@3.25.76)
+      '@isara-ctx/agent-framework':
+        specifier: workspace:*
+        version: link:../../../agent-framework
+      chromadb:
+        specifier: ^3.1.6
+        version: 3.2.2
+      dotenv:
+        specifier: ^17.2.3
+        version: 17.2.3
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.6
+        version: 20.19.30
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+
 packages:
 
   '@alcalzone/ansi-tokenize@0.1.3':

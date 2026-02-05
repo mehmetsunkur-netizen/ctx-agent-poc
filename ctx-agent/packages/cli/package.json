@@ -1,0 +1,28 @@
+{
+  "name": "@ctx-agent/cli",
+  "version": "0.1.0",
+  "description": "CLI for Context Engine Agent",
+  "type": "module",
+  "bin": {
+    "ctx-agent": "./dist/main.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/main.tsx",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@ctx-agent/ctx-agent": "workspace:*",
+    "ink": "^5.0.0",
+    "react": "^18.3.1",
+    "meow": "^13.0.0",
+    "zod": "^3.25.76",
+    "dotenv": "^17.2.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "@types/node": "^20.10.6",
+    "@types/react": "^18.3.1",
+    "tsx": "^4.7.0"
+  }
+}
