@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "jsx": "react-jsx",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@agentic-search/bcp-agent": ["../ctx-agent/src"],
+      "@isara-ctx/agent-framework": ["../../../agent-framework/src"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"],
+  "references": [{ "path": "../ctx-agent" }]
+}
