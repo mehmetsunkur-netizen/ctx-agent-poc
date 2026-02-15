@@ -98,26 +98,28 @@ pnpm cli:dev --list-sources
 
 ## Search Backend Architecture
 
-CTX-Agent supports two backend implementations:
+CTX-Agent supports two backend implementations with full feature parity:
 
 ### ChromaDB Backend (Default)
 Direct connection to ChromaDB for development and trusted environments:
-- Maximum performance (no network overhead)
-- Suitable for local testing and validation
+- Maximum performance (no network overhead for vector queries)
 - Requires direct ChromaDB access
+- **Supports source groups** via org-ctx-layer API for metadata
+- Queries multiple collections in parallel and merges results
 
 ```bash
 SEARCH_BACKEND=chroma
 CHROMA_HOST=localhost
 CHROMA_PORT=8000
+ORG_CTX_LAYER_API_URL=http://localhost:3059  # For group resolution
 ```
 
 ### HTTP Backend
 Routes queries through org-ctx-layer's HTTP API for production deployments:
 - **Security boundary**: Restricts direct database access
-- Enables future enhancements: authentication, rate-limiting, audit logging
+- Enables authentication, rate-limiting, audit logging
 - Multi-tenant ready
-- Allows business rules enforcement at API layer
+- **Supports source groups** natively via API
 
 ```bash
 SEARCH_BACKEND=http
@@ -125,7 +127,18 @@ SEARCH_API_URL=http://localhost:3059
 SEARCH_TIMEOUT_MS=30000
 ```
 
-The HTTP backend is designed for production scenarios where direct ChromaDB access should be restricted.
+**Feature Comparison**:
+
+| Feature | HTTP Backend | ChromaDB Backend |
+|---------|--------------|------------------|
+| Individual Sources | ✅ | ✅ |
+| Source Groups | ✅ | ✅ |
+| Multi-Collection | ✅ | ✅ |
+| Authentication | ✅ | ❌ |
+| Direct DB Access | ❌ | ✅ |
+| Group Metadata | Native | Via API |
+
+Both backends support the full CLI interface including `--source` flag and `--list-sources`.
 
 ## How It Works
 
@@ -135,8 +148,6 @@ CTX-Agent uses a three-stage agentic loop:
 2. **Execution**: Agent executes semantic searches against org-ctx-layer collections
 3. **Evaluation**: Assesses progress, decides whether to continue, finalize, or replan
 4. **Answer**: Synthesizes results into a coherent answer with source references
-
-Currently queries Slack data (`?sources=slack`). Multi-source selection will be available in future releases.
 
 ## Project Structure
 
@@ -197,6 +208,12 @@ make run SEARCH_BACKEND=http SEARCH_API_URL=http://localhost:3059
 - Verify org-ctx-layer has indexed data
 - Check that collections exist in ChromaDB
 - Try a broader query
+
+**Multi-source queries fail with ChromaDB backend**:
+- Verify org-ctx-layer's HTTP API is running: `curl http://localhost:3059/api/health`
+- Check `ORG_CTX_LAYER_API_URL` in `.env`
+- ChromaDB backend needs API access for group metadata
+- Ensure all source collections exist in ChromaDB
 
 ## Development
 

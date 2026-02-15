@@ -45,7 +45,7 @@ async function listSources() {
         const desc = group.description ? ` - ${group.description}` : "";
         console.log(`  ${group.name.padEnd(18)} ${group.displayName}${desc}`);
         if (group.sources) {
-          console.log(`  ${"".padEnd(18)} └─ ${group.sources}`);
+          console.log(`  ${"".padEnd(18)} └─ ${group.sources.join(", ")}`);
         }
       }
       console.log();

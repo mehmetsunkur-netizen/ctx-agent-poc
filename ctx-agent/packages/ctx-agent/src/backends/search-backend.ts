@@ -29,8 +29,8 @@ export interface SourceListItem {
   displayName: string;
   /** Description of the source */
   description?: string;
-  /** Comma-separated member sources (groups only) */
-  sources?: string;
+  /** Array of member sources (groups only) */
+  sources?: string[];
   /** ChromaDB collection name (sources only) */
   collection?: string;
 }
