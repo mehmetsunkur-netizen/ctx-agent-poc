@@ -8,63 +8,65 @@ import {
   outcomeSchema,
   stepSchema,
 } from "./schemas";
-import { Collection } from "chromadb";
+import { SearchBackend } from "./backends/search-backend";
 import {
   CTXAgentConsoleStatusHandler,
   CTXAgentStatusHandler,
 } from "./status-handler";
 import { bcpAgentPrompts } from "./prompts";
 import { searchToolsFactory } from "./tools";
-import { getContextEngineCollection } from "./chroma";
+import { createSearchBackend } from "./backends/factory";
 import { CTXAgentConfig, CTXAgentRunConfig } from "./types";
 
 export class ContextEngineAgent {
   private static MAX_PLAN_SIZE = 10;
   private static MAX_STEP_ITERATIONS = 5;
 
-  private readonly contextEngineCollection: Collection;
-  private agent: BaseAgent<BCPAgentTypes, BaseAgentServices<BCPAgentTypes>>;
-  private statusHandler: CTXAgentStatusHandler | undefined;
+  private readonly searchBackend: SearchBackend;
+  private readonly llmConfig;
+  private readonly statusHandler: CTXAgentStatusHandler | undefined;
 
   protected constructor({
     llmConfig,
-    collection,
+    backend,
     statusHandler,
   }: CTXAgentConfig) {
-    this.contextEngineCollection = collection;
+    this.searchBackend = backend;
+    this.llmConfig = llmConfig;
     this.statusHandler = statusHandler;
+  }
 
-    this.agent = BaseAgent.create({
-      llmConfig,
+  static async create(config: Omit<CTXAgentConfig, "backend">) {
+    const backend = await createSearchBackend();
+    return new ContextEngineAgent({
+      backend,
+      ...config,
+    });
+  }
+
+  async answer({
+    query,
+    source,
+    maxPlanSize = ContextEngineAgent.MAX_PLAN_SIZE,
+    maxStepIterations = ContextEngineAgent.MAX_STEP_ITERATIONS,
+    signal,
+  }: CTXAgentRunConfig) {
+    // Create agent with source-specific tools
+    const agent = BaseAgent.create({
+      llmConfig: this.llmConfig,
       schemas: {
         step: stepSchema,
         outcome: outcomeSchema,
         answer: answerSchema,
       },
       services: {
-        statusHandler: statusHandler ?? new CTXAgentConsoleStatusHandler(),
+        statusHandler: this.statusHandler ?? new CTXAgentConsoleStatusHandler(),
         prompts: bcpAgentPrompts,
       },
-      tools: searchToolsFactory(this.contextEngineCollection),
+      tools: searchToolsFactory(this.searchBackend, source),
     });
-  }
 
-  static async create(config: Omit<CTXAgentConfig, "collection">) {
-    const collection = await getContextEngineCollection();
-    return new ContextEngineAgent({
-      collection,
-      ...config,
-    });
-  }
-
-  async answer({
-    query,  // Now accepts query string directly!
-    maxPlanSize = ContextEngineAgent.MAX_PLAN_SIZE,
-    maxStepIterations = ContextEngineAgent.MAX_STEP_ITERATIONS,
-    signal,
-  }: CTXAgentRunConfig) {
-    // No getQuery() call - use query directly
-    return this.agent.run({
+    return agent.run({
       query,
       maxPlanSize,
       maxStepIterations,

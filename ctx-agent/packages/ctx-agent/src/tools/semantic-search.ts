@@ -1,7 +1,6 @@
 import { z } from "zod";
-import { Collection } from "chromadb";
 import { ChromaTool, ChromaToolResult } from "./chroma-tool";
-import { processSearchResults, RecordMetadata } from "./utils";
+import { SearchBackend } from "../backends/search-backend";
 
 const parametersSchema = z.object({
   query: z
@@ -12,9 +11,10 @@ const parametersSchema = z.object({
 });
 
 export class SemanticSearchTool extends ChromaTool {
-  private collection: Collection;
+  private backend: SearchBackend;
+  private source?: string;
 
-  constructor(collection: Collection) {
+  constructor(backend: SearchBackend, source?: string) {
     super({
       id: "semantic_search",
       name: "Semantic Search",
@@ -22,25 +22,18 @@ export class SemanticSearchTool extends ChromaTool {
         "Dense-vector semantic search. Use this when you want to find documents that are **conceptually related** to a natural-language question or idea",
       parametersSchema: parametersSchema,
     });
-    this.collection = collection;
+    this.backend = backend;
+    this.source = source;
   }
 
   public async execute(
     parameters: z.infer<typeof parametersSchema>,
   ): Promise<ChromaToolResult> {
-    const start = Date.now();
-
-    const results = await this.collection.query<RecordMetadata>({
-      queryTexts: [parameters.query],
-      where: { query: { $ne: true } },
+    return this.backend.search({
+      query: parameters.query,
       nResults: 5,
+      where: { query: { $ne: true } },
+      source: this.source,
     });
-
-    const end = Date.now();
-
-    return {
-      records: processSearchResults(results),
-      latency: `${(end - start).toFixed(2)} ms`,
-    };
   }
 }

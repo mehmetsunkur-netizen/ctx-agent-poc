@@ -1,5 +1,5 @@
 import { LLMServiceConfig, RunConfig } from "@isara-ctx/agent-framework";
-import { Collection } from "chromadb";
+import { SearchBackend } from "./backends/search-backend";
 import { CTXAgentStatusHandler } from "./status-handler";
 
 // Removed: Query interface (no query retrieval)
@@ -7,7 +7,7 @@ import { CTXAgentStatusHandler } from "./status-handler";
 
 export interface CTXAgentConfig {
   llmConfig: LLMServiceConfig;
-  collection: Collection;
+  backend: SearchBackend;
   statusHandler?: CTXAgentStatusHandler;
 }
 
@@ -16,6 +16,7 @@ export interface CTXAgentRunConfig extends Omit<
   "maxPlanSize" | "maxStepIterations"
 > {
   query: string;  // Direct query string (not queryId)
+  source?: string;  // Data source or group to query
   maxPlanSize?: number;
   maxStepIterations?: number;
 }
