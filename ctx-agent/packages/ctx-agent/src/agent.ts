@@ -23,8 +23,8 @@ export class ContextEngineAgent {
   private static MAX_STEP_ITERATIONS = 5;
 
   private readonly searchBackend: SearchBackend;
-  private agent: BaseAgent<BCPAgentTypes, BaseAgentServices<BCPAgentTypes>>;
-  private statusHandler: CTXAgentStatusHandler | undefined;
+  private readonly llmConfig;
+  private readonly statusHandler: CTXAgentStatusHandler | undefined;
 
   protected constructor({
     llmConfig,
@@ -32,21 +32,8 @@ export class ContextEngineAgent {
     statusHandler,
   }: CTXAgentConfig) {
     this.searchBackend = backend;
+    this.llmConfig = llmConfig;
     this.statusHandler = statusHandler;
-
-    this.agent = BaseAgent.create({
-      llmConfig,
-      schemas: {
-        step: stepSchema,
-        outcome: outcomeSchema,
-        answer: answerSchema,
-      },
-      services: {
-        statusHandler: statusHandler ?? new CTXAgentConsoleStatusHandler(),
-        prompts: bcpAgentPrompts,
-      },
-      tools: searchToolsFactory(this.searchBackend),
-    });
   }
 
   static async create(config: Omit<CTXAgentConfig, "backend">) {
@@ -58,13 +45,28 @@ export class ContextEngineAgent {
   }
 
   async answer({
-    query,  // Now accepts query string directly!
+    query,
+    source,
     maxPlanSize = ContextEngineAgent.MAX_PLAN_SIZE,
     maxStepIterations = ContextEngineAgent.MAX_STEP_ITERATIONS,
     signal,
   }: CTXAgentRunConfig) {
-    // No getQuery() call - use query directly
-    return this.agent.run({
+    // Create agent with source-specific tools
+    const agent = BaseAgent.create({
+      llmConfig: this.llmConfig,
+      schemas: {
+        step: stepSchema,
+        outcome: outcomeSchema,
+        answer: answerSchema,
+      },
+      services: {
+        statusHandler: this.statusHandler ?? new CTXAgentConsoleStatusHandler(),
+        prompts: bcpAgentPrompts,
+      },
+      tools: searchToolsFactory(this.searchBackend, source),
+    });
+
+    return agent.run({
       query,
       maxPlanSize,
       maxStepIterations,

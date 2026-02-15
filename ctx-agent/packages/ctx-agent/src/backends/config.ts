@@ -46,5 +46,13 @@ export function loadSearchBackendConfig(): SearchBackendConfig {
 
   console.log(`[SearchBackend] Using backend: ${type}`);
 
+  // Log default source if set
+  const defaultSource = process.env.DEFAULT_SOURCE;
+  if (defaultSource) {
+    console.log(`[SearchBackend] Default source: ${defaultSource}`);
+  } else {
+    console.log(`[SearchBackend] Default source: org-data (hardcoded fallback)`);
+  }
+
   return config;
 }

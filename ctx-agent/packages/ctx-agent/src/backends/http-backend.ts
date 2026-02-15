@@ -1,5 +1,5 @@
 import { AgentError } from "@isara-ctx/agent-framework";
-import { SearchBackend, SearchParams, SearchResult } from "./search-backend";
+import { SearchBackend, SearchParams, SearchResult, SourceListItem } from "./search-backend";
 import { ChromaRecord } from "../tools/chroma-tool";
 
 interface HttpSearchResponse {
@@ -28,11 +28,14 @@ export class HttpSearchBackend implements SearchBackend {
   async search(params: SearchParams): Promise<SearchResult> {
     const start = Date.now();
 
+    // Fallback chain: explicit param → env var → default "org-data"
+    const source = params.source || process.env.DEFAULT_SOURCE || "org-data";
+
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
-      const response = await fetch(`${this.baseUrl}/api/search?sources=slack`, {
+      const response = await fetch(`${this.baseUrl}/api/search?sources=${source}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -72,7 +75,40 @@ export class HttpSearchBackend implements SearchBackend {
         );
       }
       throw new AgentError(
-        `HTTP search failed: ${error instanceof Error ? error.message : String(error)}`,
+        `HTTP search failed for source "${source}": ${error instanceof Error ? error.message : String(error)}`,
+        error
+      );
+    }
+  }
+
+  async listSources(): Promise<SourceListItem[]> {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const response = await fetch(`${this.baseUrl}/api/sources-list`, {
+        method: "GET",
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      return await response.json() as SourceListItem[];
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new AgentError(
+          `Request to list sources timed out after 5000ms`,
+          error
+        );
+      }
+      throw new AgentError(
+        `Failed to fetch sources list from ${this.baseUrl}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
         error
       );
     }

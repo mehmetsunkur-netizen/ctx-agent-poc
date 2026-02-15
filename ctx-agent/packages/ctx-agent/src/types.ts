@@ -16,6 +16,7 @@ export interface CTXAgentRunConfig extends Omit<
   "maxPlanSize" | "maxStepIterations"
 > {
   query: string;  // Direct query string (not queryId)
+  source?: string;  // Data source or group to query
   maxPlanSize?: number;
   maxStepIterations?: number;
 }

@@ -143,6 +143,7 @@ export function useAgent({
 
         const finalAnswer = await agent.answer({
           query,
+          source: flags.source,
           maxPlanSize,
           signal: abortController.signal,
         });

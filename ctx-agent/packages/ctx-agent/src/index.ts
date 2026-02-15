@@ -2,6 +2,7 @@ export * from "./agent";
 export * from "./types";
 export * from "./schemas";
 export * from "./status-handler";
+export * from "./backends";
 
 export type {
   BaseEvaluation,

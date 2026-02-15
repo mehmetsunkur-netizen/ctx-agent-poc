@@ -56,15 +56,44 @@ $ ctx-agent "<your question>" [options]
 Options:
   --provider, -p         LLM provider (default: openai)
   --model, -m            Model name (default: gpt-4o-mini)
+  --source, -s           Data source or group to query
+                         (Default: from DEFAULT_SOURCE env var or "org-data")
+  --list-sources         List all available data sources and groups
   --max-plan-size        Max steps in query plan (default: 10)
   --max-step-iterations  Max iterations per step (default: 5)
   --verbose, -v          Show detailed debug information
   --debug-file           Path to JSON debug log file
 
 Examples:
+  # Use default source (org-data: slack + notion)
   pnpm cli:dev "What is our vacation policy?"
-  pnpm cli:dev "How do we handle customer escalations?" -m gpt-4o
-  pnpm cli:dev "What tools does the design team use?" --verbose
+
+  # Query specific source
+  pnpm cli:dev "What tools do engineers use?" --source slack
+  pnpm cli:dev "What are our design principles?" --source notion
+
+  # Query source group
+  pnpm cli:dev "What development processes do we follow?" --source org-data
+
+  # List available sources
+  pnpm cli:dev --list-sources
+
+  # Other options
+  pnpm cli:dev "How do we handle escalations?" -m gpt-4o --verbose
+```
+
+### Source Selection
+
+By default, ctx-agent queries the **org-data** group, which includes non-technical organizational context (Slack + Notion). This aligns with ctx-agent's purpose: validating organizational data ingested by org-ctx-layer.
+
+**Fallback chain** when no `--source` is specified:
+1. **CLI flag**: `--source notion` (highest priority)
+2. **Environment variable**: `DEFAULT_SOURCE=slack`
+3. **Hardcoded default**: `org-data` (slack + notion)
+
+To see what sources are available:
+```bash
+pnpm cli:dev --list-sources
 ```
 
 ## Search Backend Architecture

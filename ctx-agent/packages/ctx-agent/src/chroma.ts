@@ -50,5 +50,5 @@ export async function getContextEngineCollection() {
     );
   }
 
-  return collection;
+  return { collection, client };
 }

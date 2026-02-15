@@ -12,8 +12,9 @@ const parametersSchema = z.object({
 
 export class SemanticSearchTool extends ChromaTool {
   private backend: SearchBackend;
+  private source?: string;
 
-  constructor(backend: SearchBackend) {
+  constructor(backend: SearchBackend, source?: string) {
     super({
       id: "semantic_search",
       name: "Semantic Search",
@@ -22,6 +23,7 @@ export class SemanticSearchTool extends ChromaTool {
       parametersSchema: parametersSchema,
     });
     this.backend = backend;
+    this.source = source;
   }
 
   public async execute(
@@ -31,6 +33,7 @@ export class SemanticSearchTool extends ChromaTool {
       query: parameters.query,
       nResults: 5,
       where: { query: { $ne: true } },
+      source: this.source,
     });
   }
 }
