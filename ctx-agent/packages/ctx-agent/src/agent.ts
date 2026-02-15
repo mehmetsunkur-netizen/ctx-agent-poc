@@ -8,30 +8,30 @@ import {
   outcomeSchema,
   stepSchema,
 } from "./schemas";
-import { Collection } from "chromadb";
+import { SearchBackend } from "./backends/search-backend";
 import {
   CTXAgentConsoleStatusHandler,
   CTXAgentStatusHandler,
 } from "./status-handler";
 import { bcpAgentPrompts } from "./prompts";
 import { searchToolsFactory } from "./tools";
-import { getContextEngineCollection } from "./chroma";
+import { createSearchBackend } from "./backends/factory";
 import { CTXAgentConfig, CTXAgentRunConfig } from "./types";
 
 export class ContextEngineAgent {
   private static MAX_PLAN_SIZE = 10;
   private static MAX_STEP_ITERATIONS = 5;
 
-  private readonly contextEngineCollection: Collection;
+  private readonly searchBackend: SearchBackend;
   private agent: BaseAgent<BCPAgentTypes, BaseAgentServices<BCPAgentTypes>>;
   private statusHandler: CTXAgentStatusHandler | undefined;
 
   protected constructor({
     llmConfig,
-    collection,
+    backend,
     statusHandler,
   }: CTXAgentConfig) {
-    this.contextEngineCollection = collection;
+    this.searchBackend = backend;
     this.statusHandler = statusHandler;
 
     this.agent = BaseAgent.create({
@@ -45,14 +45,14 @@ export class ContextEngineAgent {
         statusHandler: statusHandler ?? new CTXAgentConsoleStatusHandler(),
         prompts: bcpAgentPrompts,
       },
-      tools: searchToolsFactory(this.contextEngineCollection),
+      tools: searchToolsFactory(this.searchBackend),
     });
   }
 
-  static async create(config: Omit<CTXAgentConfig, "collection">) {
-    const collection = await getContextEngineCollection();
+  static async create(config: Omit<CTXAgentConfig, "backend">) {
+    const backend = await createSearchBackend();
     return new ContextEngineAgent({
-      collection,
+      backend,
       ...config,
     });
   }

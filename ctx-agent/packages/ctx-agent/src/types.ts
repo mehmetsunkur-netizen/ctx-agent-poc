@@ -1,5 +1,5 @@
 import { LLMServiceConfig, RunConfig } from "@isara-ctx/agent-framework";
-import { Collection } from "chromadb";
+import { SearchBackend } from "./backends/search-backend";
 import { CTXAgentStatusHandler } from "./status-handler";
 
 // Removed: Query interface (no query retrieval)
@@ -7,7 +7,7 @@ import { CTXAgentStatusHandler } from "./status-handler";
 
 export interface CTXAgentConfig {
   llmConfig: LLMServiceConfig;
-  collection: Collection;
+  backend: SearchBackend;
   statusHandler?: CTXAgentStatusHandler;
 }
 

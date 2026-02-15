@@ -1,9 +1,9 @@
-import { Collection } from "chromadb";
+import { SearchBackend } from "../backends/search-backend";
 import { SemanticSearchTool } from "./semantic-search";
 
-export function searchToolsFactory(collection: Collection) {
+export function searchToolsFactory(backend: SearchBackend) {
   return [
-    new SemanticSearchTool(collection),
+    new SemanticSearchTool(backend),
     // Lexical and Hybrid search removed (no sparse embeddings)
   ];
 }

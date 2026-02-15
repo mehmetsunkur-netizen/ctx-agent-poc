@@ -6,7 +6,7 @@
     "jsx": "react-jsx",
     "paths": {
       "@/*": ["./src/*"],
-      "@agentic-search/bcp-agent": ["../ctx-agent/src"],
+      "@ctx-agent/ctx-agent": ["../ctx-agent/src"],
       "@isara-ctx/agent-framework": ["../../../agent-framework/src"]
     }
   },
