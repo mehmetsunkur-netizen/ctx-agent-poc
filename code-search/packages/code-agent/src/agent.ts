@@ -1,4 +1,5 @@
-import { Indexer } from "./indexer";
+import { Collection } from "chromadb";
+import { getCollection } from "./chroma-client";
 import {
   CodeSearchAgentConfig,
   CodeSearchAgentCreateConfig,
@@ -9,7 +10,6 @@ import {
 import { AgentError, BaseAgent } from "@isara-ctx/agent-framework";
 import { answerSchema, outcomeSchema, stepSchema } from "./schemas";
 import { codeSearchAgentPrompts } from "./prompts";
-import { GitRepository } from "./repository";
 import {
   GetFileTool,
   ListFilesTool,
@@ -22,16 +22,19 @@ export class CodeSearchAgent {
   private static MAX_PLAN_SIZE = 10;
   private static MAX_STEP_ITERATIONS = 5;
 
-  private indexer: Indexer;
+  private collection: Collection;
+  private repositoryPath: string | undefined;
   private agent: BaseAgent<CodeSearchAgentTypes>;
   private statusHandler: CodeSearchAgentStatusHandler | undefined;
 
   private constructor({
-    indexer,
+    collection,
+    repositoryPath,
     llmConfig,
     statusHandler,
   }: CodeSearchAgentConfig) {
-    this.indexer = indexer;
+    this.collection = collection;
+    this.repositoryPath = repositoryPath;
     this.statusHandler = statusHandler;
     this.agent = BaseAgent.create({
       llmConfig,
@@ -41,24 +44,32 @@ export class CodeSearchAgent {
         answer: answerSchema,
       },
       services: { statusHandler, prompts: codeSearchAgentPrompts },
-      tools: [new ListFilesTool(this.indexer.repository.path)],
+      tools: repositoryPath ? [new ListFilesTool(repositoryPath)] : [],
     });
   }
 
   static async create({
-    repository,
-    path,
+    collection,
+    collectionName,
+    repositoryPath,
     ...config
   }: CodeSearchAgentCreateConfig) {
-    if (!path && !repository) {
-      throw new AgentError("Must provide a path or reference to a repository");
+    // Accept either collection object or collection name
+    let coll: Collection;
+
+    if (collection) {
+      coll = collection;
+    } else if (collectionName) {
+      coll = await getCollection(collectionName);
+    } else {
+      throw new AgentError("Must provide collection or collectionName");
     }
 
-    const indexer = await Indexer.create({
-      repository: repository || new GitRepository(path!),
+    return new CodeSearchAgent({
+      collection: coll,
+      repositoryPath,
+      ...config,
     });
-
-    return new CodeSearchAgent({ indexer, ...config });
   }
 
   async run({
@@ -67,19 +78,41 @@ export class CodeSearchAgent {
     maxStepIterations = CodeSearchAgent.MAX_STEP_ITERATIONS,
     signal,
   }: CodeSearchAgentRunConfig) {
-    this.statusHandler?.onIndex();
-    const collection = await this.indexer.run();
+    // No indexing! Use pre-existing collection
     return await this.agent.run({
       query,
       maxPlanSize,
       maxStepIterations,
       signal,
       runtimeTools: [
-        new SymbolSearchTool(collection),
-        new RegexSearchTool(collection),
-        new SemanticSearchTool(collection),
-        new GetFileTool(collection),
+        new SymbolSearchTool(this.collection),
+        new RegexSearchTool(this.collection),
+        new SemanticSearchTool(this.collection),
+        new GetFileTool(this.collection),
       ],
     });
+  }
+
+  /**
+   * Get collection metadata and info
+   */
+  async getCollectionInfo() {
+    return {
+      name: this.collection.name,
+      metadata: await this.collection.metadata,
+      count: await this.collection.count(),
+    };
+  }
+
+  /**
+   * Check collection health
+   */
+  async healthCheck() {
+    try {
+      const count = await this.collection.count();
+      return { healthy: true, documentCount: count };
+    } catch (error) {
+      return { healthy: false, error: String(error) };
+    }
   }
 }

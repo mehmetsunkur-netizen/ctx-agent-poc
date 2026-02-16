@@ -8,7 +8,10 @@ const helpText = `
         query                  The question to ask about the codebase
 
     Options:
-        --path, -p             Path to the repository to search (Default: current directory)
+        --collection, -c       ChromaDB collection name to query (required)
+                               The collection must be indexed first
+
+        --repository-path      Optional repository path for context (enables file listing)
 
         --provider             Specify the LLM provider to use (Default: openai)
 
@@ -21,18 +24,38 @@ const helpText = `
         --max-step-iterations  Set the max number of iterations for each step
                                (Default: 5)
 
+    Environment Variables:
+        CHROMA_COLLECTION      Default collection if --collection not specified
+        CHROMA_HOST            ChromaDB host (Default: localhost)
+        CHROMA_PORT            ChromaDB port (Default: 8000)
+
     Examples:
-        $ code-search "How is authentication implemented?"
-        $ code-search "Where is the database connection configured?" --path ./my-project
-        $ code-search "What does the UserService class do?" -m gpt-4o
+        # Query indexed repository
+        $ code-search "How is authentication implemented?" --collection backend-repo
+
+        # With custom model
+        $ code-search "Where is the database configured?" -c backend-repo -m gpt-4o
+
+        # Using environment variable
+        $ export CHROMA_COLLECTION=backend-repo
+        $ code-search "What does the UserService do?"
+
+    Note:
+        Before querying, you must index your repository:
+        $ pnpm index /path/to/repo --collection backend-repo
+
+        See README for more information.
 `;
 
 export const cli = meow(helpText, {
   importMeta: import.meta,
   flags: {
-    path: {
+    collection: {
       type: "string",
-      shortFlag: "p",
+      shortFlag: "c",
+    },
+    repositoryPath: {
+      type: "string",
     },
     provider: {
       type: "string",

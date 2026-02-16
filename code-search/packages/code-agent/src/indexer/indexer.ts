@@ -8,6 +8,7 @@ import ignore from "ignore";
 import { AgentError } from "@isara-ctx/agent-framework";
 import { OpenAIEmbeddingFunction } from "@chroma-core/openai";
 import { Chunk } from "../chunker/types";
+import { createEmbeddingFunction } from "../embedding";
 
 export class Indexer {
   private static MAX_TOKEN = 8192;
@@ -43,10 +44,8 @@ export class Indexer {
       maxTokens: Indexer.MAX_TOKEN,
     });
 
-    // Initialize embedding function
-    this.embeddingFunction = new OpenAIEmbeddingFunction({
-      modelName: "text-embedding-3-large",
-    });
+    // Initialize embedding function (shared with chroma-client)
+    this.embeddingFunction = createEmbeddingFunction();
   }
 
   private sanitizeRepoName(name: string): string {

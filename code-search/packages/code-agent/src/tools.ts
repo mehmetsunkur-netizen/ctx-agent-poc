@@ -229,7 +229,7 @@ export class ListFilesTool implements Tool<{ files: string }> {
   private readonly rootPath: string;
   id: string = "list_files";
   name: string = "List Files";
-  description: string = "List all the files in this repository.";
+  description: string = "List all the files in the indexed codebase. Note: Requires repositoryPath to be provided during agent creation.";
   parametersSchema = z.object({});
   resultSchema = z.object({ files: z.string() });
 

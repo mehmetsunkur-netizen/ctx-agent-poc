@@ -36,7 +36,8 @@ export function useAgent({
 
     class CLIStatusHandler implements CodeSearchAgentStatusHandler {
       onIndex() {
-        setAppStatus("Indexing repository...");
+        // Deprecated: No longer called (indexing removed)
+        setAppStatus("Loading collection...");
       }
 
       onPlanUpdate(queryPlan: Step[]) {
@@ -75,20 +76,36 @@ export function useAgent({
     async function runAgent() {
       const provider = flags.provider || "openai";
       const model = flags.model || "gpt-4o-mini";
-      const repoPath = flags.path || process.cwd();
+      const collectionName = flags.collection || process.env.CHROMA_COLLECTION;
+      const repositoryPath = flags.repositoryPath;
       const maxPlanSize = flags.maxPlanSize;
       const maxStepIterations = flags.maxStepIterations;
+
+      if (!collectionName) {
+        throw new AgentError(
+          "Collection name required. Use --collection flag or set CHROMA_COLLECTION environment variable.\n\n" +
+          "Before querying, index your repository:\n" +
+          "  pnpm index /path/to/repo --collection my-repo"
+        );
+      }
+
+      setAppStatus(`Connecting to collection: ${collectionName}...`);
 
       const cliStatusHandler = new CLIStatusHandler();
 
       const agent = await CodeSearchAgent.create({
-        path: repoPath,
+        collectionName,
+        repositoryPath,
         llmConfig: {
           provider: LLMFactory.parseLLMProvider(provider),
           model,
         },
         statusHandler: cliStatusHandler,
       });
+
+      // Show collection info
+      const info = await agent.getCollectionInfo();
+      setAppStatus(`Querying ${info.name} (${info.count} documents)...`);
 
       const finalAnswer = await agent.run({
         query,

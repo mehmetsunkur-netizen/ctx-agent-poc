@@ -6,6 +6,7 @@ dotenv.config();
 const envSchema = z.object({
   CHROMA_HOST: z.string().default('localhost'),
   CHROMA_PORT: z.string().default('8000'),
+  CHROMA_COLLECTION: z.string().optional(),
   OPENAI_API_KEY: z.string().min(1, "OPENAI_API_KEY is required in .env"),
 });
 

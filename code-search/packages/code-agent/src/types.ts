@@ -1,4 +1,4 @@
-import { Indexer } from "./indexer";
+import { Collection } from "chromadb";
 import {
   AgentStatusHandler,
   baseEvaluationSchema,
@@ -6,23 +6,43 @@ import {
   RunConfig,
 } from "@isara-ctx/agent-framework";
 import { answerSchema, outcomeSchema, stepSchema } from "./schemas";
-import { Repository } from "./repository";
 
 export interface CodeSearchAgentConfig {
-  indexer: Indexer;
+  collection: Collection;
+  repositoryPath?: string;
   llmConfig: LLMServiceConfig;
   statusHandler?: CodeSearchAgentStatusHandler;
 }
 
 export interface CodeSearchAgentStatusHandler extends AgentStatusHandler<CodeSearchAgentTypes> {
-  onIndex(): void;
+  /**
+   * @deprecated No longer used (indexing removed from agent)
+   */
+  onIndex?(): void;
 }
 
-export type CodeSearchAgentCreateConfig = Omit<
-  CodeSearchAgentConfig,
-  "indexer"
-> &
-  Partial<{ path: string; repository: Repository }>;
+export interface CodeSearchAgentCreateConfig {
+  /**
+   * ChromaDB collection to query
+   * Provide either this OR collectionName
+   */
+  collection?: Collection;
+
+  /**
+   * Name of ChromaDB collection to query
+   * Collection must already exist (be indexed)
+   */
+  collectionName?: string;
+
+  /**
+   * Optional repository path for context
+   * Not used for indexing, only for metadata/tools
+   */
+  repositoryPath?: string;
+
+  llmConfig: LLMServiceConfig;
+  statusHandler?: CodeSearchAgentStatusHandler;
+}
 
 export interface CodeSearchAgentTypes {
   step: typeof stepSchema;
