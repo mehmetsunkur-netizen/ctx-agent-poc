@@ -5,7 +5,6 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
     "cli:dev": "pnpm --filter @isara-ctx/code-cli dev",
     "index": "tsx scripts/index-repository.ts",
     "index:help": "tsx scripts/index-repository.ts --help"

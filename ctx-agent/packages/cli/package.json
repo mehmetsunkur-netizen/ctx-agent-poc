@@ -7,7 +7,8 @@
     "ctx-agent": "./dist/main.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
     "dev": "tsx src/main.tsx",
     "clean": "rm -rf dist"
   },

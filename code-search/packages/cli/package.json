@@ -8,8 +8,9 @@
   },
   "scripts": {
     "dev": "tsx src/main.tsx",
-    "build": "tsc",
-    "start": "node dist/main.js"
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "start": "tsx src/main.tsx"
   },
   "dependencies": {
     "@isara-ctx/code-agent": "workspace:*",

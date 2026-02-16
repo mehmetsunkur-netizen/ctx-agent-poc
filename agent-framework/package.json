@@ -5,7 +5,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc"
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

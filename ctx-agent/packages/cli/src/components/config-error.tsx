@@ -9,7 +9,7 @@ export function ConfigError({ issues }: { issues: ZodIssue[] }) {
   return (
     <CLIView
       appStatus="Configuration Error"
-      query={null}
+      query=""
       plan={[]}
       assistantMessages={[]}
       result={null}
