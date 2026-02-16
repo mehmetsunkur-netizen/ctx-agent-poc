@@ -61,7 +61,7 @@
         "workspace",
         "monorepo"
       ],
-      "answer": "This monorepo uses pnpm as its package manager. The pnpm-workspace.yaml file defines workspace packages including agent-framework, agentic-search, code-search, and code-search-eval. Workspaces are managed using the workspace:* protocol for internal dependencies."
+      "answer": "This monorepo uses pnpm as its package manager. The pnpm-workspace.yaml file defines workspace packages including agent-framework, code-search, code-search-eval, and ctx-agent. Workspaces are managed using the workspace:* protocol for internal dependencies."
     }
   ]
 }
