@@ -63,7 +63,7 @@ export function evaluateStepUserPrompt({
           const chunkSummary = outcome.chunks
             .map(
               (c: Chunk) =>
-                `  - ${c.filePath}${c.symbol ? ` (${c.symbol})` : ""}\n    ${c.snippet}`,
+                `  - ${c.file_path}${c.symbol ? ` (${c.symbol})` : ""}\n    ${c.snippet}`,
             )
             .join("\n");
           parts.push(`Relevant code:\n${chunkSummary}`);

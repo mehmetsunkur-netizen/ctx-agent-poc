@@ -211,7 +211,7 @@ export class Indexer {
     if (filesToDelete.length > 0) {
       await collection.delete({
         where: {
-          filePath: { $in: filesToDelete }
+          file_path: { $in: filesToDelete }
         }
       });
     }

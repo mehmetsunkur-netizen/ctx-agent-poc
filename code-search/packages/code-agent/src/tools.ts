@@ -7,7 +7,7 @@ import ignore from "ignore";
 
 export const recordSchema = z.object({
   code: z.string(),
-  filePath: z.string(),
+  file_path: z.string(),
 });
 
 export type Record = z.infer<typeof recordSchema>;
@@ -61,17 +61,17 @@ export abstract class CodeSearchTool implements Tool<CodeSearchToolResult> {
   }
 
   protected processResults(
-    results: QueryRowResult<{ filePath: string }>[],
+    results: QueryRowResult<{ file_path: string }>[],
   ): Record[] {
     return results.map((result) => {
-      if (!result.document || !result.metadata?.filePath) {
+      if (!result.document || result.metadata?.file_path == null) {
         throw new AgentError(
           `Corrupted record ${result.id} has no document or metadata`,
         );
       }
       return {
         code: result.document,
-        filePath: result.metadata.filePath,
+        file_path: result.metadata.file_path,
       };
     });
   }
@@ -85,7 +85,7 @@ export abstract class CodeSearchTool implements Tool<CodeSearchToolResult> {
 
     return records
       .map(
-        (record) => `// ${record.filePath}
+        (record) => `// ${record.file_path}
 ${record.code}`,
       )
       .join("\n\n");
@@ -113,8 +113,8 @@ export class SymbolSearchTool extends CodeSearchTool {
   }: {
     symbolName: string;
   }): Promise<CodeSearchToolResult> {
-    const results = await this.collection.get<{ filePath: string }>({
-      where: { symbolName },
+    const results = await this.collection.get<{ file_path: string }>({
+      where: { symbol: symbolName },
     });
     return { records: this.processResults(results.rows()) };
   }
@@ -138,7 +138,7 @@ export class RegexSearchTool extends CodeSearchTool {
   }: {
     pattern: string;
   }): Promise<CodeSearchToolResult> {
-    const results = await this.collection.get<{ filePath: string }>({
+    const results = await this.collection.get<{ file_path: string }>({
       whereDocument: { $regex: pattern },
     });
     return { records: this.processResults(results.rows()) };
@@ -160,7 +160,7 @@ export class SemanticSearchTool extends CodeSearchTool {
   }
 
   async execute({ query }: { query: string }): Promise<CodeSearchToolResult> {
-    const results = await this.collection.query<{ filePath: string }>({
+    const results = await this.collection.query<{ file_path: string }>({
       queryTexts: [query],
     });
     return { records: this.processResults(results.rows()[0]) };
@@ -169,17 +169,17 @@ export class SemanticSearchTool extends CodeSearchTool {
 
 export class GetFileTool implements Tool<{
   content: string;
-  filePath: string;
+  file_path: string;
 }> {
   private collection: Collection;
   id: string = "get_file";
   name: string = "Get File";
   description: string = "Get the contents of the file";
   parametersSchema = z.object({
-    filePath: z.string().describe("The file pat to retrieve"),
+    file_path: z.string().describe("The file path to retrieve"),
   });
   resultSchema = z.object({
-    filePath: z.string(),
+    file_path: z.string(),
     content: z.string(),
   });
 
@@ -188,40 +188,40 @@ export class GetFileTool implements Tool<{
   }
 
   async execute({
-    filePath,
+    file_path,
   }: {
-    filePath: string;
-  }): Promise<{ content: string; filePath: string }> {
-    const results = await this.collection.get<{ startLine: number }>({
-      where: { filePath },
+    file_path: string;
+  }): Promise<{ content: string; file_path: string }> {
+    const results = await this.collection.get<{ start_line: number }>({
+      where: { file_path },
     });
 
     if (results.ids.length === 0) {
-      throw new AgentError(`No file with path ${filePath} found`);
+      throw new AgentError(`No file with path ${file_path} found`);
     }
 
     const records = results.rows().map((result) => {
-      if (!result.document || !result.metadata?.startLine) {
+      if (!result.document || result.metadata?.start_line == null) {
         throw new AgentError(`Corrupted record ${result.id} has no document`);
       }
 
       return {
         content: result.document,
-        startLine: result.metadata.startLine,
+        start_line: result.metadata.start_line,
       };
     });
 
     return {
       content: records
-        .sort((a, b) => a.startLine - b.startLine)
+        .sort((a, b) => a.start_line - b.start_line)
         .map((record) => record.content)
         .join("\n"),
-      filePath,
+      file_path,
     };
   }
 
-  format({ content, filePath }: { content: string; filePath: string }): string {
-    return `// ${filePath}\n\n${content}`;
+  format({ content, file_path }: { content: string; file_path: string }): string {
+    return `// ${file_path}\n\n${content}`;
   }
 }
 

@@ -46,7 +46,7 @@ export class Chunker {
     const nodes = this.collectNodes(tree.rootNode, config.targetNodes);
     nodes.sort((a, b) => a.startIndex - b.startIndex);
 
-    const chunks: Omit<Chunk, "language" | "filePath">[] = [];
+    const chunks: Omit<Chunk, "language" | "file_path">[] = [];
 
     let cursor = 0;
     let line = tree.rootNode.startPosition.row;
@@ -79,10 +79,10 @@ export class Chunker {
       chunks.push(...this.chunkCodeSpan(tail, line));
     }
 
-    return chunks.map((chunk, i) => {
+    return chunks.map((chunk) => {
       return {
         ...chunk,
-        filePath,
+        file_path: filePath,
         language: config.name,
       };
     });
@@ -106,12 +106,12 @@ export class Chunker {
   private chunkCodeSpan(
     src: string,
     startLine: number,
-  ): Omit<Chunk, "language" | "filePath">[] {
+  ): Omit<Chunk, "language" | "file_path">[] {
     if (!src.trim()) {
       return [];
     }
 
-    const chunks: Omit<Chunk, "language" | "filePath">[] = [];
+    const chunks: Omit<Chunk, "language" | "file_path">[] = [];
     const NEW_LINE_TOKEN = this.encoder.encode("\n").length;
     const lines = src.split("\n");
 
@@ -123,8 +123,8 @@ export class Chunker {
       chunks.push({
         id: uuidv4(),
         document: currentLines.join("\n"),
-        startLine: splitStart,
-        endLine: splitStart + currentLines.length - 1,
+        start_line: splitStart,
+        end_line: splitStart + currentLines.length - 1,
       });
     };
 

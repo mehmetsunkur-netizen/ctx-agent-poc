@@ -11,7 +11,7 @@ export const stepSchema = baseStepSchema.extend({
 export type Step = z.infer<typeof stepSchema>;
 
 export const chunkSchema = z.object({
-  filePath: z.string(),
+  file_path: z.string(),
   snippet: z.string(),
   symbol: z.string().nullable().describe("Function, class, or variable name"),
   relevance: z.number().min(0).max(1),
