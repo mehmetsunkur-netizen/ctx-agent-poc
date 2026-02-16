@@ -19,7 +19,23 @@ export class SemanticSearchTool extends ChromaTool {
       id: "semantic_search",
       name: "Semantic Search",
       description:
-        "Dense-vector semantic search. Use this when you want to find documents that are **conceptually related** to a natural-language question or idea",
+        `Search the organizational knowledge base using semantic similarity (dense-vector search).
+
+This tool searches across multiple source types that may include conversational data, documentation, and files. Use this when you want to find content that is **conceptually related** to a natural-language question or idea.
+
+Results may include metadata such as:
+- Source type (conversations, documents, files, etc.)
+- Timestamp (when the content was created/modified)
+- Author/creator information
+- Location (channel, folder, path, etc.)
+
+Best for:
+- Broad exploratory searches
+- Finding conceptually similar information
+- Discovering related discussions or documents
+- When you don't know exact keywords
+
+Note: This tool searches based on meaning, not exact text matching. Results are semantically relevant even if they don't contain your exact query terms.`,
       parametersSchema: parametersSchema,
     });
     this.backend = backend;

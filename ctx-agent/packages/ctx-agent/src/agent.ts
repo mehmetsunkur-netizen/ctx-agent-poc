@@ -44,6 +44,38 @@ export class ContextEngineAgent {
     });
   }
 
+  /**
+   * Get optional source guidance from backend.
+   * This enhances generic prompts with deployment-specific source information.
+   */
+  private async getSourceGuidance(): Promise<string> {
+    try {
+      const sources = await this.searchBackend.listSources();
+
+      if (sources.length === 0) {
+        return "";
+      }
+
+      const sourceList = sources
+        .map((s) => {
+          const desc = s.description ? ` - ${s.description}` : "";
+          return `  - ${s.displayName} (${s.type})${desc}`;
+        })
+        .join("\n");
+
+      return `
+
+Available sources in this knowledge base:
+${sourceList}
+
+Consider which sources are most relevant for your query type when planning searches.`;
+    } catch (error) {
+      // Backend might not support listSources yet, or it failed
+      // Gracefully fall back to generic prompts without source info
+      return "";
+    }
+  }
+
   async answer({
     query,
     source,
@@ -51,6 +83,19 @@ export class ContextEngineAgent {
     maxStepIterations = ContextEngineAgent.MAX_STEP_ITERATIONS,
     signal,
   }: CTXAgentRunConfig) {
+    // Get optional source guidance
+    const sourceGuidance = await this.getSourceGuidance();
+
+    // Enhance prompts with runtime source information if available
+    const enhancedPrompts = sourceGuidance
+      ? {
+          ...ctxAgentPrompts,
+          generatePlan: (maxSize: number) => {
+            return ctxAgentPrompts.generatePlan(maxSize) + sourceGuidance;
+          },
+        }
+      : ctxAgentPrompts;
+
     // Create agent with source-specific tools
     const agent = BaseAgent.create({
       llmConfig: this.llmConfig,
@@ -61,7 +106,7 @@ export class ContextEngineAgent {
       },
       services: {
         statusHandler: this.statusHandler ?? new CTXAgentConsoleStatusHandler(),
-        prompts: ctxAgentPrompts,
+        prompts: enhancedPrompts,
       },
       tools: searchToolsFactory(this.searchBackend, source),
     });
