@@ -1,6 +1,6 @@
 import type { Step, Outcome, Answer, Evaluation, ToolCall } from "@ctx-agent/ctx-agent";
 import type { AgentStatusHandler } from "@isara-ctx/agent-framework";
-import type { BCPAgentTypes } from "@ctx-agent/ctx-agent";
+import type { CTXAgentTypes } from "@ctx-agent/ctx-agent";
 import fs from "fs/promises";
 import { dirname } from "path";
 
@@ -21,12 +21,12 @@ interface DebugLogEntry {
  * DebugStatusHandler wraps another status handler and adds debug logging capabilities.
  * It can log to console (if verbose) and/or to a JSON file.
  */
-export class DebugStatusHandler implements AgentStatusHandler<BCPAgentTypes> {
+export class DebugStatusHandler implements AgentStatusHandler<CTXAgentTypes> {
   private logs: DebugLogEntry[] = [];
   private startTime: number;
 
   constructor(
-    private wrapped: AgentStatusHandler<BCPAgentTypes>,
+    private wrapped: AgentStatusHandler<CTXAgentTypes>,
     private options: DebugOptions
   ) {
     this.startTime = Date.now();

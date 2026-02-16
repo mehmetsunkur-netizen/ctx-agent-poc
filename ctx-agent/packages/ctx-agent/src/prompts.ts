@@ -1,5 +1,5 @@
 import { Context, PromptsService } from "@isara-ctx/agent-framework";
-import { BCPAgentTypes, Step } from "./schemas";
+import { CTXAgentTypes, Step } from "./schemas";
 
 function generatePlan(
   maxQueryPlanSize: number,
@@ -39,7 +39,7 @@ export function evaluateStepUserPrompt({
   step,
   query,
 }: {
-  context: Context<BCPAgentTypes>;
+  context: Context<CTXAgentTypes>;
   step?: Step;
   query?: string;
 }): string {
@@ -96,7 +96,7 @@ function finalAnswerSystemPrompt() {
   return "You are an expert query planner for a multi-step search agent operating on a large corpus of documents. Given the original question and all the reasoning steps the agent took, produce the final answer. Ground the answer only in the cited evidence. If the evidence is inconclusive, produce your best short answer with a lower confidence score.";
 }
 
-export const bcpAgentPrompts: PromptsService<BCPAgentTypes> = {
+export const ctxAgentPrompts: PromptsService<CTXAgentTypes> = {
   generatePlan,
   executeStepSystemPrompt,
   executeStepUserPrompt: ({
@@ -104,7 +104,7 @@ export const bcpAgentPrompts: PromptsService<BCPAgentTypes> = {
     context,
   }: {
     step: Step;
-    context: Context<BCPAgentTypes>;
+    context: Context<CTXAgentTypes>;
   }) => evaluateStepUserPrompt({ step, context }),
   evaluateStepUserPrompt,
   finalizeStepPrompt,
@@ -114,7 +114,7 @@ export const bcpAgentPrompts: PromptsService<BCPAgentTypes> = {
     context,
   }: {
     query: string;
-    context: Context<BCPAgentTypes>;
+    context: Context<CTXAgentTypes>;
   }) => evaluateStepUserPrompt({ query, context }),
   finalAnswerSystemPrompt,
   finalAnswerUserPrompt: ({
@@ -122,6 +122,6 @@ export const bcpAgentPrompts: PromptsService<BCPAgentTypes> = {
     context,
   }: {
     query: string;
-    context: Context<BCPAgentTypes>;
+    context: Context<CTXAgentTypes>;
   }) => evaluateStepUserPrompt({ query, context }),
 };

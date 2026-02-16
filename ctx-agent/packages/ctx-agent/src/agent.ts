@@ -4,7 +4,7 @@ import {
 } from "@isara-ctx/agent-framework";
 import {
   answerSchema,
-  BCPAgentTypes,
+  CTXAgentTypes,
   outcomeSchema,
   stepSchema,
 } from "./schemas";
@@ -13,7 +13,7 @@ import {
   CTXAgentConsoleStatusHandler,
   CTXAgentStatusHandler,
 } from "./status-handler";
-import { bcpAgentPrompts } from "./prompts";
+import { ctxAgentPrompts } from "./prompts";
 import { searchToolsFactory } from "./tools";
 import { createSearchBackend } from "./backends/factory";
 import { CTXAgentConfig, CTXAgentRunConfig } from "./types";
@@ -61,7 +61,7 @@ export class ContextEngineAgent {
       },
       services: {
         statusHandler: this.statusHandler ?? new CTXAgentConsoleStatusHandler(),
-        prompts: bcpAgentPrompts,
+        prompts: ctxAgentPrompts,
       },
       tools: searchToolsFactory(this.searchBackend, source),
     });

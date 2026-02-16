@@ -59,7 +59,7 @@ export const answerSchema = z.object({
 
 export type Answer = z.infer<typeof answerSchema>;
 
-export interface BCPAgentTypes {
+export interface CTXAgentTypes {
   step: typeof stepSchema;
   outcome: typeof outcomeSchema;
   evaluation: typeof baseEvaluationSchema;
